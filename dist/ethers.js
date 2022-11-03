@@ -1,4 +1,4 @@
-const version = "6.0.0-beta-exports.4";
+const version = "6.0.0-beta-exports.5";
 
 async function resolveProperties(value) {
     const keys = Object.keys(value);
@@ -3338,7 +3338,7 @@ function randomBytes$1(length) {
 
 let locked$4 = false;
 const _computeHmac = function (algorithm, key, data) {
-    return "0x" + createHmac(algorithm, key).update(data).digest("hex");
+    return createHmac(algorithm, key).update(data).digest();
 };
 let __computeHmac = _computeHmac;
 function computeHmac(algorithm, _key, _data) {
@@ -5276,18 +5276,7 @@ class Signature {
         return Signature.getChainId(v);
     }
     get yParity() {
-        if (this.v === 27) {
-            return 0;
-        }
-        return 1;
-        /*
-        // When v is 0 or 1 it is the recid directly
-        if (this.v.isZero()) { return 0; }
-        if (this.v.eq(1)) { return 1; }
-
-        // Otherwise, odd (e.g. 27) is 0 and even (e.g. 28) is 1
-        return this.v.and(1).isZero() ? 1: 0;
-        */
+        return (this.v === 27) ? 0 : 1;
     }
     get yParityAndS() {
         // The EIP-2098 compact representation
@@ -5332,9 +5321,9 @@ class Signature {
             r: this.r, s: this.s, v: this.v,
         };
     }
-    static create() {
-        return new Signature(_guard$3, ZeroHash, ZeroHash, 27);
-    }
+    //static create(): Signature {
+    //    return new Signature(_guard, ZeroHash, ZeroHash, 27);
+    //}
     // Get the chain ID from an EIP-155 v
     static getChainId(v) {
         const bv = getBigInt(v, "v");
@@ -5365,6 +5354,9 @@ class Signature {
         return (bv & BN_1$4) ? 27 : 28;
     }
     static from(sig) {
+        if (sig == null) {
+            return new Signature(_guard$3, ZeroHash, ZeroHash, 27);
+        }
         const throwError = (message) => {
             return throwArgumentError(message, "signature", sig);
         };
@@ -5377,8 +5369,8 @@ class Signature {
                 s[0] &= 0x7f;
                 return new Signature(_guard$3, r, hexlify(s), v);
             }
-            if (dataLength(sig) !== 65) {
-                const r = hexlify(sig.slice(0, 32));
+            if (bytes.length === 65) {
+                const r = hexlify(bytes.slice(0, 32));
                 const s = bytes.slice(32, 64);
                 if (s[0] & 0x80) {
                     throwError("non-canonical s");
@@ -5479,9 +5471,7 @@ class SigningKey {
     get publicKey() { return SigningKey.computePublicKey(this.#privateKey); }
     get compressedPublicKey() { return SigningKey.computePublicKey(this.#privateKey, true); }
     sign(digest) {
-        /* @TODO
-        logger.assertArgument(() => (dataLength(digest) === 32), "invalid digest length", "digest", digest);
-        */
+        assertArgument(dataLength(digest) === 32, "invalid digest length", "digest", digest);
         const [sigDer, recid] = signSync(getBytesCopy(digest), getBytesCopy(this.#privateKey), {
             recovered: true,
             canonical: true
@@ -5513,6 +5503,7 @@ class SigningKey {
         return hexlify(point.toRawBytes(compressed));
     }
     static recoverPublicKey(digest, signature) {
+        assertArgument(dataLength(digest) === 32, "invalid digest length", "digest", digest);
         const sig = Signature.from(signature);
         const der = Signature$1.fromCompact(getBytesCopy(concat([sig.r, sig.s]))).toDERRawBytes();
         const pubKey = recoverPublicKey(getBytesCopy(digest), der, sig.yParity);
@@ -7467,7 +7458,7 @@ class ParamType {
                     return value[param.name];
                 });
             }
-            if (value.length !== this.components.length) {
+            if (result.length !== this.components.length) {
                 throw new Error("array is wrong length");
             }
             result.forEach((value, index) => {
@@ -7564,7 +7555,7 @@ class ParamType {
             });
             return new ParamType(_guard$2, name, type, "array", indexed, null, arrayLength, arrayChildren);
         }
-        if (type.substring(0, 5) === "tuple(" || type[0] === "(") {
+        if (type === "tuple" || type.substring(0, 5) === "tuple(" || type[0] === "(") {
             const comps = (obj.components != null) ? obj.components.map((c) => ParamType.from(c)) : null;
             const tuple = new ParamType(_guard$2, name, type, "tuple", indexed, comps, null, null);
             // @TODO: use lexer to validate and normalize type
@@ -7949,6 +7940,78 @@ class AbiCoder {
         const coder = new TupleCoder(coders, "_");
         return coder.decode(new Reader(data, loose));
     }
+}
+// https://docs.soliditylang.org/en/v0.8.17/control-structures.html
+const PanicReasons$1 = new Map();
+PanicReasons$1.set(0x00, "GENERIC_PANIC");
+PanicReasons$1.set(0x01, "ASSERT_FALSE");
+PanicReasons$1.set(0x11, "OVERFLOW");
+PanicReasons$1.set(0x12, "DIVIDE_BY_ZERO");
+PanicReasons$1.set(0x21, "ENUM_RANGE_ERROR");
+PanicReasons$1.set(0x22, "BAD_STORAGE_DATA");
+PanicReasons$1.set(0x31, "STACK_UNDERFLOW");
+PanicReasons$1.set(0x32, "ARRAY_RANGE_ERROR");
+PanicReasons$1.set(0x41, "OUT_OF_MEMORY");
+PanicReasons$1.set(0x51, "UNINITIALIZED_FUNCTION_CALL");
+function getBuiltinCallException(action, tx, data) {
+    let message = "missing revert data";
+    let reason = null;
+    const invocation = null;
+    let revert = null;
+    if (data) {
+        message = "execution reverted";
+        const bytes = getBytes(data);
+        data = hexlify(data);
+        if (bytes.length % 32 !== 4) {
+            message += " (could not decode reason; invalid data length)";
+        }
+        else if (hexlify(bytes.slice(0, 4)) === "0x08c379a0") {
+            // Error(string)
+            try {
+                reason = defaultAbiCoder.decode(["string"], bytes.slice(4))[0];
+                revert = {
+                    signature: "Error(string)",
+                    name: "Error",
+                    args: [reason]
+                };
+                message += `: ${JSON.stringify(reason)}`;
+            }
+            catch (error) {
+                console.log(error);
+                message += " (could not decode reason; invalid data)";
+            }
+        }
+        else if (hexlify(bytes.slice(0, 4)) === "0x4e487b71") {
+            // Panic(uint256)
+            try {
+                const code = Number(defaultAbiCoder.decode(["uint256"], bytes.slice(4))[0]);
+                revert = {
+                    signature: "Panic(uint256)",
+                    name: "Panic",
+                    args: [code]
+                };
+                reason = `Panic due to ${PanicReasons$1.get(code) || "UNKNOWN"}(${code})`;
+                message += `: ${reason}`;
+            }
+            catch (error) {
+                console.log(error);
+                message += " (could not decode panic reason)";
+            }
+        }
+        else {
+            message += " (unknown custom error)";
+        }
+    }
+    const transaction = {
+        to: (tx.to ? getAddress(tx.to) : null),
+        data: (tx.data || "0x")
+    };
+    if (tx.from) {
+        transaction.from = getAddress(tx.from);
+    }
+    return makeError(message, "CALL_EXCEPTION", {
+        action, data, reason, transaction, invocation, revert
+    });
 }
 const defaultAbiCoder = new AbiCoder();
 
@@ -8544,65 +8607,42 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
             info: { method: fragment.name, signature: fragment.format() }
         });
     }
-    makeError(fragment, _data, tx) {
-        if (typeof (fragment) === "string") {
-            fragment = this.getFunction(fragment);
-        }
-        const data = getBytes(_data);
-        let args = undefined;
-        if (tx) {
+    makeError(_data, tx) {
+        const data = getBytes(_data, "data");
+        const error = getBuiltinCallException("call", tx, data);
+        // Not a built-in error; try finding a custom error
+        if (!error.message.match(/could not decode/)) {
+            const selector = hexlify(data.slice(0, 4));
+            error.message = "execution reverted (unknown custom error)";
             try {
-                args = this.#abiCoder.decode(fragment.inputs, tx.data || "0x");
+                const ef = this.getError(selector);
+                try {
+                    error.revert = {
+                        name: ef.name,
+                        signature: ef.format(),
+                        args: this.#abiCoder.decode(ef.inputs, data.slice(4))
+                    };
+                    error.reason = error.revert.signature;
+                    error.message = `execution reverted: ${error.reason}`;
+                }
+                catch (e) {
+                    error.message = `execution reverted (coult not decode custom error)`;
+                }
             }
             catch (error) {
-                console.log(error);
+                console.log(error); // @TODO: remove
             }
         }
-        let errorArgs = undefined;
-        let errorName = undefined;
-        let errorSignature = undefined;
-        let reason = "unknown reason";
-        if (data.length === 0) {
-            reason = "missing error reason";
+        // Add the invocation, if available
+        const parsed = this.parseTransaction(tx);
+        if (parsed) {
+            error.invocation = {
+                method: parsed.name,
+                signature: parsed.signature,
+                args: parsed.args
+            };
         }
-        else if ((data.length % 32) === 4) {
-            const selector = hexlify(data.slice(0, 4));
-            const builtin = BuiltinErrors[selector];
-            if (builtin) {
-                try {
-                    errorName = builtin.name;
-                    errorSignature = builtin.signature;
-                    errorArgs = this.#abiCoder.decode(builtin.inputs, data.slice(4));
-                    reason = builtin.reason(...errorArgs);
-                }
-                catch (error) {
-                    console.log(error); // @TODO: remove
-                }
-            }
-            else {
-                reason = "unknown custom error";
-                try {
-                    const error = this.getError(selector);
-                    errorName = error.name;
-                    errorSignature = error.format();
-                    reason = `custom error: ${errorSignature}`;
-                    try {
-                        errorArgs = this.#abiCoder.decode(error.inputs, data.slice(4));
-                    }
-                    catch (error) {
-                        reason = `custom error: ${errorSignature} (coult not decode error data)`;
-                    }
-                }
-                catch (error) {
-                    console.log(error); // @TODO: remove
-                }
-            }
-        }
-        return makeError("call revert exception", "CALL_EXCEPTION", {
-            data: hexlify(data), transaction: null,
-            method: fragment.name, signature: fragment.format(), args,
-            errorArgs, errorName, errorSignature, reason
-        });
+        return error;
     }
     /**
      *  Encodes the result data (e.g. from an ``eth_call``) for the
@@ -8893,469 +8933,6 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
 
 //////
 
-const BN_1$1 = BigInt(1);
-const Empty = new Uint8Array([]);
-function parseBytes(result, start) {
-    if (result === "0x") {
-        return null;
-    }
-    const offset = toNumber(dataSlice(result, start, start + 32));
-    const length = toNumber(dataSlice(result, offset, offset + 32));
-    return dataSlice(result, offset + 32, offset + 32 + length);
-}
-function parseString(result, start) {
-    try {
-        const bytes = parseBytes(result, start);
-        if (bytes != null) {
-            return toUtf8String(bytes);
-        }
-    }
-    catch (error) { }
-    return null;
-}
-function numPad$1(value) {
-    const result = toArray(value);
-    if (result.length > 32) {
-        throw new Error("internal; should not happen");
-    }
-    const padded = new Uint8Array(32);
-    padded.set(result, 32 - result.length);
-    return padded;
-}
-function bytesPad$1(value) {
-    if ((value.length % 32) === 0) {
-        return value;
-    }
-    const result = new Uint8Array(Math.ceil(value.length / 32) * 32);
-    result.set(value);
-    return result;
-}
-// ABI Encodes a series of (bytes, bytes, ...)
-function encodeBytes$1(datas) {
-    const result = [];
-    let byteCount = 0;
-    // Add place-holders for pointers as we add items
-    for (let i = 0; i < datas.length; i++) {
-        result.push(Empty);
-        byteCount += 32;
-    }
-    for (let i = 0; i < datas.length; i++) {
-        const data = getBytes(datas[i]);
-        // Update the bytes offset
-        result[i] = numPad$1(byteCount);
-        // The length and padded value of data
-        result.push(numPad$1(data.length));
-        result.push(bytesPad$1(data));
-        byteCount += 32 + Math.ceil(data.length / 32) * 32;
-    }
-    return concat(result);
-}
-function callAddress(value) {
-    if (value.length !== 66 || dataSlice(value, 0, 12) !== "0x000000000000000000000000") {
-        throwArgumentError("invalid call address", "value", value);
-    }
-    return getAddress("0x" + value.substring(26));
-}
-// @TODO: This should use the fetch-data:ipfs gateway
-// Trim off the ipfs:// prefix and return the default gateway URL
-function getIpfsLink(link) {
-    if (link.match(/^ipfs:\/\/ipfs\//i)) {
-        link = link.substring(12);
-    }
-    else if (link.match(/^ipfs:\/\//i)) {
-        link = link.substring(7);
-    }
-    else {
-        throwArgumentError("unsupported IPFS format", "link", link);
-    }
-    return `https:/\/gateway.ipfs.io/ipfs/${link}`;
-}
-;
-;
-class MulticoinProviderPlugin {
-    name;
-    constructor(name) {
-        defineProperties(this, { name });
-    }
-    validate(proivder) {
-        return this;
-    }
-    supportsCoinType(coinType) {
-        return false;
-    }
-    async encodeAddress(coinType, address) {
-        throw new Error("unsupported coin");
-    }
-    async decodeAddress(coinType, data) {
-        throw new Error("unsupported coin");
-    }
-}
-const BasicMulticoinPluginId = "org.ethers.provider-prugins.basicmulticoin";
-class BasicMulticoinProviderPlugin extends MulticoinProviderPlugin {
-    constructor() {
-        super(BasicMulticoinPluginId);
-    }
-}
-const matcherIpfs = new RegExp("^(ipfs):/\/(.*)$", "i");
-const matchers = [
-    new RegExp("^(https):/\/(.*)$", "i"),
-    new RegExp("^(data):(.*)$", "i"),
-    matcherIpfs,
-    new RegExp("^eip155:[0-9]+/(erc[0-9]+):(.*)$", "i"),
-];
-class EnsResolver {
-    provider;
-    address;
-    name;
-    // For EIP-2544 names, the ancestor that provided the resolver
-    #supports2544;
-    constructor(provider, address, name) {
-        defineProperties(this, { provider, address, name });
-        this.#supports2544 = null;
-    }
-    async supportsWildcard() {
-        if (!this.#supports2544) {
-            // supportsInterface(bytes4 = selector("resolve(bytes,bytes)"))
-            this.#supports2544 = this.provider.call({
-                to: this.address,
-                data: "0x01ffc9a79061b92300000000000000000000000000000000000000000000000000000000"
-            }).then((result) => {
-                return (getBigInt(result) === BN_1$1);
-            }).catch((error) => {
-                if (error.code === "CALL_EXCEPTION") {
-                    return false;
-                }
-                // Rethrow the error: link is down, etc. Let future attempts retry.
-                this.#supports2544 = null;
-                throw error;
-            });
-        }
-        return await this.#supports2544;
-    }
-    async _fetch(selector, parameters = "0x") {
-        // e.g. keccak256("addr(bytes32,uint256)")
-        const addrData = concat([selector, namehash(this.name), parameters]);
-        const tx = {
-            to: this.address,
-            enableCcipRead: true,
-            data: addrData
-        };
-        // Wildcard support; use EIP-2544 to resolve the request
-        let wrapped = false;
-        if (await this.supportsWildcard()) {
-            wrapped = true;
-            // selector("resolve(bytes,bytes)")
-            tx.data = concat(["0x9061b923", encodeBytes$1([dnsEncode(this.name), addrData])]);
-        }
-        try {
-            let data = await this.provider.call(tx);
-            if ((getBytes(data).length % 32) === 4) {
-                return throwError("resolver threw error", "CALL_EXCEPTION", {
-                    transaction: tx, data
-                });
-            }
-            if (wrapped) {
-                return parseBytes(data, 0);
-            }
-            return data;
-        }
-        catch (error) {
-            if (error.code !== "CALL_EXCEPTION") {
-                throw error;
-            }
-        }
-        return null;
-    }
-    async getAddress(coinType = 60) {
-        if (coinType === 60) {
-            try {
-                // keccak256("addr(bytes32)")
-                const result = await this._fetch("0x3b3b57de");
-                // No address
-                if (result == null || result === "0x" || result === ZeroHash) {
-                    return null;
-                }
-                return callAddress(result);
-            }
-            catch (error) {
-                if (error.code === "CALL_EXCEPTION") {
-                    return null;
-                }
-                throw error;
-            }
-        }
-        let coinPlugin = null;
-        for (const plugin of this.provider.plugins) {
-            if (!(plugin instanceof MulticoinProviderPlugin)) {
-                continue;
-            }
-            if (plugin.supportsCoinType(coinType)) {
-                coinPlugin = plugin;
-                break;
-            }
-        }
-        if (coinPlugin == null) {
-            return null;
-        }
-        // keccak256("addr(bytes32,uint256")
-        const data = parseBytes((await this._fetch("0xf1cb7e06", numPad$1(coinType))) || "0x", 0);
-        // No address
-        if (data == null || data === "0x") {
-            return null;
-        }
-        // Compute the address
-        const address = await coinPlugin.encodeAddress(coinType, data);
-        if (address != null) {
-            return address;
-        }
-        return throwError(`invalid coin data`, "UNSUPPORTED_OPERATION", {
-            operation: `getAddress(${coinType})`,
-            info: { coinType, data }
-        });
-    }
-    async getText(key) {
-        // The key encoded as parameter to fetchBytes
-        let keyBytes = toUtf8Bytes(key);
-        // The nodehash consumes the first slot, so the string pointer targets
-        // offset 64, with the length at offset 64 and data starting at offset 96
-        const calldata = getBytes(concat([numPad$1(64), numPad$1(keyBytes.length), keyBytes]));
-        const hexBytes = parseBytes((await this._fetch("0x59d1d43c", bytesPad$1(calldata))) || "0x", 0);
-        if (hexBytes == null || hexBytes === "0x") {
-            return null;
-        }
-        return toUtf8String(hexBytes);
-    }
-    async getContentHash() {
-        // keccak256("contenthash()")
-        const hexBytes = parseBytes((await this._fetch("0xbc1c58d1")) || "0x", 0);
-        // No contenthash
-        if (hexBytes == null || hexBytes === "0x") {
-            return null;
-        }
-        // IPFS (CID: 1, Type: 70=DAG-PB, 72=libp2p-key)
-        const ipfs = hexBytes.match(/^0x(e3010170|e5010172)(([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f]*))$/);
-        if (ipfs) {
-            const scheme = (ipfs[1] === "e3010170") ? "ipfs" : "ipns";
-            const length = parseInt(ipfs[4], 16);
-            if (ipfs[5].length === length * 2) {
-                return `${scheme}:/\/${encodeBase58("0x" + ipfs[2])}`;
-            }
-        }
-        // Swarm (CID: 1, Type: swarm-manifest; hash/length hard-coded to keccak256/32)
-        const swarm = hexBytes.match(/^0xe40101fa011b20([0-9a-f]*)$/);
-        if (swarm && swarm[1].length === 64) {
-            return `bzz:/\/${swarm[1]}`;
-        }
-        return throwError(`invalid or unsupported content hash data`, "UNSUPPORTED_OPERATION", {
-            operation: "getContentHash()",
-            info: { data: hexBytes }
-        });
-    }
-    async getAvatar() {
-        return (await this._getAvatar()).url;
-    }
-    async _getAvatar() {
-        const linkage = [{ type: "name", value: this.name }];
-        try {
-            // test data for ricmoo.eth
-            //const avatar = "eip155:1/erc721:0x265385c7f4132228A0d54EB1A9e7460b91c0cC68/29233";
-            const avatar = await this.getText("avatar");
-            if (avatar == null) {
-                linkage.push({ type: "!avatar", value: "" });
-                throw new Error("!avatar");
-            }
-            linkage.push({ type: "avatar", value: avatar });
-            for (let i = 0; i < matchers.length; i++) {
-                const match = avatar.match(matchers[i]);
-                if (match == null) {
-                    continue;
-                }
-                const scheme = match[1].toLowerCase();
-                switch (scheme) {
-                    case "https":
-                    case "data":
-                        linkage.push({ type: "url", value: avatar });
-                        return { linkage, url: avatar };
-                    case "ipfs": {
-                        const url = getIpfsLink(avatar);
-                        linkage.push({ type: "ipfs", value: avatar });
-                        linkage.push({ type: "url", value: url });
-                        return { linkage, url };
-                    }
-                    case "erc721":
-                    case "erc1155": {
-                        // Depending on the ERC type, use tokenURI(uint256) or url(uint256)
-                        const selector = (scheme === "erc721") ? "0xc87b56dd" : "0x0e89341c";
-                        linkage.push({ type: scheme, value: avatar });
-                        // The owner of this name
-                        const owner = await this.getAddress();
-                        if (owner == null) {
-                            linkage.push({ type: "!owner", value: "" });
-                            throw new Error("!owner");
-                        }
-                        const comps = (match[2] || "").split("/");
-                        if (comps.length !== 2) {
-                            linkage.push({ type: `!${scheme}caip`, value: (match[2] || "") });
-                            throw new Error("!caip");
-                        }
-                        const addr = getAddress(comps[0]);
-                        const tokenId = numPad$1(comps[1]);
-                        // Check that this account owns the token
-                        if (scheme === "erc721") {
-                            // ownerOf(uint256 tokenId)
-                            const tokenOwner = callAddress(await this.provider.call({
-                                to: addr, data: concat(["0x6352211e", tokenId])
-                            }));
-                            if (owner !== tokenOwner) {
-                                linkage.push({ type: "!owner", value: tokenOwner });
-                                throw new Error("!owner");
-                            }
-                            linkage.push({ type: "owner", value: tokenOwner });
-                        }
-                        else if (scheme === "erc1155") {
-                            // balanceOf(address owner, uint256 tokenId)
-                            const balance = getBigInt(await this.provider.call({
-                                to: addr, data: concat(["0x00fdd58e", zeroPadValue(owner, 32), tokenId])
-                            }));
-                            if (!balance) {
-                                linkage.push({ type: "!balance", value: "0" });
-                                throw new Error("!balance");
-                            }
-                            linkage.push({ type: "balance", value: balance.toString() });
-                        }
-                        // Call the token contract for the metadata URL
-                        const tx = {
-                            to: comps[0],
-                            data: concat([selector, tokenId])
-                        };
-                        let metadataUrl = parseString(await this.provider.call(tx), 0);
-                        if (metadataUrl == null) {
-                            linkage.push({ type: "!metadata-url", value: "" });
-                            throw new Error("!metadata-url");
-                        }
-                        linkage.push({ type: "metadata-url-base", value: metadataUrl });
-                        // ERC-1155 allows a generic {id} in the URL
-                        if (scheme === "erc1155") {
-                            metadataUrl = metadataUrl.replace("{id}", hexlify(tokenId).substring(2));
-                            linkage.push({ type: "metadata-url-expanded", value: metadataUrl });
-                        }
-                        // Transform IPFS metadata links
-                        if (metadataUrl.match(/^ipfs:/i)) {
-                            metadataUrl = getIpfsLink(metadataUrl);
-                        }
-                        linkage.push({ type: "metadata-url", value: metadataUrl });
-                        // Get the token metadata
-                        let metadata = {};
-                        const response = await (new FetchRequest(metadataUrl)).send();
-                        response.assertOk();
-                        try {
-                            metadata = response.bodyJson;
-                        }
-                        catch (error) {
-                            try {
-                                linkage.push({ type: "!metadata", value: response.bodyText });
-                            }
-                            catch (error) {
-                                const bytes = response.body;
-                                if (bytes) {
-                                    linkage.push({ type: "!metadata", value: hexlify(bytes) });
-                                }
-                                throw error;
-                            }
-                            throw error;
-                        }
-                        if (!metadata) {
-                            linkage.push({ type: "!metadata", value: "" });
-                            throw new Error("!metadata");
-                        }
-                        linkage.push({ type: "metadata", value: JSON.stringify(metadata) });
-                        // Pull the image URL out
-                        let imageUrl = metadata.image;
-                        if (typeof (imageUrl) !== "string") {
-                            linkage.push({ type: "!imageUrl", value: "" });
-                            throw new Error("!imageUrl");
-                        }
-                        if (imageUrl.match(/^(https:\/\/|data:)/i)) {
-                            // Allow
-                        }
-                        else {
-                            // Transform IPFS link to gateway
-                            const ipfs = imageUrl.match(matcherIpfs);
-                            if (ipfs == null) {
-                                linkage.push({ type: "!imageUrl-ipfs", value: imageUrl });
-                                throw new Error("!imageUrl-ipfs");
-                            }
-                            linkage.push({ type: "imageUrl-ipfs", value: imageUrl });
-                            imageUrl = getIpfsLink(imageUrl);
-                        }
-                        linkage.push({ type: "url", value: imageUrl });
-                        return { linkage, url: imageUrl };
-                    }
-                }
-            }
-        }
-        catch (error) {
-            console.log("EE", error);
-        }
-        return { linkage, url: null };
-    }
-    static async #getResolver(provider, name) {
-        const network = await provider.getNetwork();
-        const ensPlugin = network.getPlugin("org.ethers.network-plugins.ens");
-        // No ENS...
-        if (!ensPlugin) {
-            return throwError("network does not support ENS", "UNSUPPORTED_OPERATION", {
-                operation: "getResolver", info: { network: network.name }
-            });
-        }
-        try {
-            // keccak256("resolver(bytes32)")
-            const addrData = await provider.call({
-                to: ensPlugin.address,
-                data: concat(["0x0178b8bf", namehash(name)]),
-                enableCcipRead: true
-            });
-            const addr = callAddress(addrData);
-            if (addr === dataSlice(ZeroHash, 0, 20)) {
-                return null;
-            }
-            return addr;
-        }
-        catch (error) {
-            // ENS registry cannot throw errors on resolver(bytes32),
-            // so probably a link error
-            throw error;
-        }
-        return null;
-    }
-    static async fromName(provider, name) {
-        let currentName = name;
-        while (true) {
-            if (currentName === "" || currentName === ".") {
-                return null;
-            }
-            // Optimization since the eth node cannot change and does
-            // not have a wildcar resolver
-            if (name !== "eth" && currentName === "eth") {
-                return null;
-            }
-            // Check the current node for a resolver
-            const addr = await EnsResolver.#getResolver(provider, currentName);
-            // Found a resolver!
-            if (addr != null) {
-                const resolver = new EnsResolver(provider, addr, name);
-                // Legacy resolver found, using EIP-2544 so it isn't safe to use
-                if (currentName !== name && !(await resolver.supportsWildcard())) {
-                    return null;
-                }
-                return resolver;
-            }
-            // Get the parent node
-            currentName = currentName.split(".").slice(1).join(".");
-        }
-    }
-}
-
 function accessSetify(addr, storageKeys) {
     return {
         address: getAddress(addr),
@@ -9393,8 +8970,14 @@ function accessListify(value) {
 }
 
 function computeAddress(key) {
-    const publicKey = SigningKey.computePublicKey(key, false);
-    return getAddress(keccak256("0x" + publicKey.substring(4)).substring(26));
+    let pubkey;
+    if (typeof (key) === "string") {
+        pubkey = SigningKey.computePublicKey(key, false);
+    }
+    else {
+        pubkey = key.publicKey;
+    }
+    return getAddress(keccak256("0x" + pubkey.substring(4)).substring(26));
 }
 function recoverAddress(digest, signature) {
     return computeAddress(SigningKey.recoverPublicKey(digest, signature));
@@ -9768,7 +9351,7 @@ class Transaction {
     }
     get hash() {
         if (this.signature == null) {
-            throw new Error("cannot hash unsigned transaction; maybe you meant .unsignedHash");
+            return null;
         }
         return keccak256(this.serialized);
     }
@@ -9779,12 +9362,13 @@ class Transaction {
         if (this.signature == null) {
             return null;
         }
-        return recoverAddress(this.unsignedSerialized, this.signature);
+        return recoverAddress(this.unsignedHash, this.signature);
     }
     get fromPublicKey() {
         if (this.signature == null) {
             return null;
         }
+        throw new Error("@TODO");
         // use ecrecover
         return "";
     }
@@ -9903,6 +9487,29 @@ class Transaction {
     isFrozen() {
         return Object.isFrozen(this.#props);
     }
+    toJSON() {
+        const s = (v) => {
+            if (v == null) {
+                return null;
+            }
+            return v.toString();
+        };
+        return {
+            type: this.type,
+            to: this.to,
+            from: this.from,
+            data: this.data,
+            nonce: this.nonce,
+            gasLimit: s(this.gasLimit),
+            gasPrice: s(this.gasPrice),
+            maxPriorityFeePerGas: s(this.maxPriorityFeePerGas),
+            maxFeePerGas: s(this.maxFeePerGas),
+            value: s(this.value),
+            chainId: s(this.chainId),
+            sig: this.signature ? this.signature.toJSON() : null,
+            accessList: this.accessList
+        };
+    }
     static from(tx) {
         if (typeof (tx) === "string") {
             const payload = getBytes(tx);
@@ -9973,6 +9580,471 @@ class Transaction {
             }
         }
         return result;
+    }
+}
+
+const BN_1$1 = BigInt(1);
+const Empty = new Uint8Array([]);
+function parseBytes(result, start) {
+    if (result === "0x") {
+        return null;
+    }
+    const offset = toNumber(dataSlice(result, start, start + 32));
+    const length = toNumber(dataSlice(result, offset, offset + 32));
+    return dataSlice(result, offset + 32, offset + 32 + length);
+}
+function parseString(result, start) {
+    try {
+        const bytes = parseBytes(result, start);
+        if (bytes != null) {
+            return toUtf8String(bytes);
+        }
+    }
+    catch (error) { }
+    return null;
+}
+function numPad$1(value) {
+    const result = toArray(value);
+    if (result.length > 32) {
+        throw new Error("internal; should not happen");
+    }
+    const padded = new Uint8Array(32);
+    padded.set(result, 32 - result.length);
+    return padded;
+}
+function bytesPad$1(value) {
+    if ((value.length % 32) === 0) {
+        return value;
+    }
+    const result = new Uint8Array(Math.ceil(value.length / 32) * 32);
+    result.set(value);
+    return result;
+}
+// ABI Encodes a series of (bytes, bytes, ...)
+function encodeBytes$1(datas) {
+    const result = [];
+    let byteCount = 0;
+    // Add place-holders for pointers as we add items
+    for (let i = 0; i < datas.length; i++) {
+        result.push(Empty);
+        byteCount += 32;
+    }
+    for (let i = 0; i < datas.length; i++) {
+        const data = getBytes(datas[i]);
+        // Update the bytes offset
+        result[i] = numPad$1(byteCount);
+        // The length and padded value of data
+        result.push(numPad$1(data.length));
+        result.push(bytesPad$1(data));
+        byteCount += 32 + Math.ceil(data.length / 32) * 32;
+    }
+    return concat(result);
+}
+function callAddress(value) {
+    if (value.length !== 66 || dataSlice(value, 0, 12) !== "0x000000000000000000000000") {
+        throwArgumentError("invalid call address", "value", value);
+    }
+    return getAddress("0x" + value.substring(26));
+}
+// @TODO: This should use the fetch-data:ipfs gateway
+// Trim off the ipfs:// prefix and return the default gateway URL
+function getIpfsLink(link) {
+    if (link.match(/^ipfs:\/\/ipfs\//i)) {
+        link = link.substring(12);
+    }
+    else if (link.match(/^ipfs:\/\//i)) {
+        link = link.substring(7);
+    }
+    else {
+        throwArgumentError("unsupported IPFS format", "link", link);
+    }
+    return `https:/\/gateway.ipfs.io/ipfs/${link}`;
+}
+;
+;
+class MulticoinProviderPlugin {
+    name;
+    constructor(name) {
+        defineProperties(this, { name });
+    }
+    validate(proivder) {
+        return this;
+    }
+    supportsCoinType(coinType) {
+        return false;
+    }
+    async encodeAddress(coinType, address) {
+        throw new Error("unsupported coin");
+    }
+    async decodeAddress(coinType, data) {
+        throw new Error("unsupported coin");
+    }
+}
+const BasicMulticoinPluginId = "org.ethers.provider-prugins.basicmulticoin";
+class BasicMulticoinProviderPlugin extends MulticoinProviderPlugin {
+    constructor() {
+        super(BasicMulticoinPluginId);
+    }
+}
+const matcherIpfs = new RegExp("^(ipfs):/\/(.*)$", "i");
+const matchers = [
+    new RegExp("^(https):/\/(.*)$", "i"),
+    new RegExp("^(data):(.*)$", "i"),
+    matcherIpfs,
+    new RegExp("^eip155:[0-9]+/(erc[0-9]+):(.*)$", "i"),
+];
+class EnsResolver {
+    provider;
+    address;
+    name;
+    // For EIP-2544 names, the ancestor that provided the resolver
+    #supports2544;
+    constructor(provider, address, name) {
+        defineProperties(this, { provider, address, name });
+        this.#supports2544 = null;
+    }
+    async supportsWildcard() {
+        if (!this.#supports2544) {
+            // supportsInterface(bytes4 = selector("resolve(bytes,bytes)"))
+            this.#supports2544 = this.provider.call({
+                to: this.address,
+                data: "0x01ffc9a79061b92300000000000000000000000000000000000000000000000000000000"
+            }).then((result) => {
+                return (getBigInt(result) === BN_1$1);
+            }).catch((error) => {
+                if (error.code === "CALL_EXCEPTION") {
+                    return false;
+                }
+                // Rethrow the error: link is down, etc. Let future attempts retry.
+                this.#supports2544 = null;
+                throw error;
+            });
+        }
+        return await this.#supports2544;
+    }
+    async _fetch(selector, parameters = "0x") {
+        // e.g. keccak256("addr(bytes32,uint256)")
+        const addrData = concat([selector, namehash(this.name), parameters]);
+        const tx = {
+            to: this.address,
+            from: ZeroAddress,
+            enableCcipRead: true,
+            data: addrData
+        };
+        // Wildcard support; use EIP-2544 to resolve the request
+        let wrapped = false;
+        if (await this.supportsWildcard()) {
+            wrapped = true;
+            // selector("resolve(bytes,bytes)")
+            tx.data = concat(["0x9061b923", encodeBytes$1([dnsEncode(this.name), addrData])]);
+        }
+        try {
+            let data = await this.provider.call(tx);
+            if ((getBytes(data).length % 32) === 4) {
+                return throwError("execution reverted during JSON-RPC call (could not parse reason; invalid data length)", "CALL_EXCEPTION", {
+                    action: "call", data, reason: null, transaction: tx,
+                    invocation: null, revert: null
+                });
+            }
+            if (wrapped) {
+                return parseBytes(data, 0);
+            }
+            return data;
+        }
+        catch (error) {
+            if (error.code !== "CALL_EXCEPTION") {
+                throw error;
+            }
+        }
+        return null;
+    }
+    async getAddress(coinType = 60) {
+        if (coinType === 60) {
+            try {
+                // keccak256("addr(bytes32)")
+                const result = await this._fetch("0x3b3b57de");
+                // No address
+                if (result == null || result === "0x" || result === ZeroHash) {
+                    return null;
+                }
+                return callAddress(result);
+            }
+            catch (error) {
+                if (error.code === "CALL_EXCEPTION") {
+                    return null;
+                }
+                throw error;
+            }
+        }
+        let coinPlugin = null;
+        for (const plugin of this.provider.plugins) {
+            if (!(plugin instanceof MulticoinProviderPlugin)) {
+                continue;
+            }
+            if (plugin.supportsCoinType(coinType)) {
+                coinPlugin = plugin;
+                break;
+            }
+        }
+        if (coinPlugin == null) {
+            return null;
+        }
+        // keccak256("addr(bytes32,uint256")
+        const data = parseBytes((await this._fetch("0xf1cb7e06", numPad$1(coinType))) || "0x", 0);
+        // No address
+        if (data == null || data === "0x") {
+            return null;
+        }
+        // Compute the address
+        const address = await coinPlugin.encodeAddress(coinType, data);
+        if (address != null) {
+            return address;
+        }
+        return throwError(`invalid coin data`, "UNSUPPORTED_OPERATION", {
+            operation: `getAddress(${coinType})`,
+            info: { coinType, data }
+        });
+    }
+    async getText(key) {
+        // The key encoded as parameter to fetchBytes
+        let keyBytes = toUtf8Bytes(key);
+        // The nodehash consumes the first slot, so the string pointer targets
+        // offset 64, with the length at offset 64 and data starting at offset 96
+        const calldata = getBytes(concat([numPad$1(64), numPad$1(keyBytes.length), keyBytes]));
+        const hexBytes = parseBytes((await this._fetch("0x59d1d43c", bytesPad$1(calldata))) || "0x", 0);
+        if (hexBytes == null || hexBytes === "0x") {
+            return null;
+        }
+        return toUtf8String(hexBytes);
+    }
+    async getContentHash() {
+        // keccak256("contenthash()")
+        const hexBytes = parseBytes((await this._fetch("0xbc1c58d1")) || "0x", 0);
+        // No contenthash
+        if (hexBytes == null || hexBytes === "0x") {
+            return null;
+        }
+        // IPFS (CID: 1, Type: 70=DAG-PB, 72=libp2p-key)
+        const ipfs = hexBytes.match(/^0x(e3010170|e5010172)(([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f]*))$/);
+        if (ipfs) {
+            const scheme = (ipfs[1] === "e3010170") ? "ipfs" : "ipns";
+            const length = parseInt(ipfs[4], 16);
+            if (ipfs[5].length === length * 2) {
+                return `${scheme}:/\/${encodeBase58("0x" + ipfs[2])}`;
+            }
+        }
+        // Swarm (CID: 1, Type: swarm-manifest; hash/length hard-coded to keccak256/32)
+        const swarm = hexBytes.match(/^0xe40101fa011b20([0-9a-f]*)$/);
+        if (swarm && swarm[1].length === 64) {
+            return `bzz:/\/${swarm[1]}`;
+        }
+        return throwError(`invalid or unsupported content hash data`, "UNSUPPORTED_OPERATION", {
+            operation: "getContentHash()",
+            info: { data: hexBytes }
+        });
+    }
+    async getAvatar() {
+        return (await this._getAvatar()).url;
+    }
+    async _getAvatar() {
+        const linkage = [{ type: "name", value: this.name }];
+        try {
+            // test data for ricmoo.eth
+            //const avatar = "eip155:1/erc721:0x265385c7f4132228A0d54EB1A9e7460b91c0cC68/29233";
+            const avatar = await this.getText("avatar");
+            if (avatar == null) {
+                linkage.push({ type: "!avatar", value: "" });
+                throw new Error("!avatar");
+            }
+            linkage.push({ type: "avatar", value: avatar });
+            for (let i = 0; i < matchers.length; i++) {
+                const match = avatar.match(matchers[i]);
+                if (match == null) {
+                    continue;
+                }
+                const scheme = match[1].toLowerCase();
+                switch (scheme) {
+                    case "https":
+                    case "data":
+                        linkage.push({ type: "url", value: avatar });
+                        return { linkage, url: avatar };
+                    case "ipfs": {
+                        const url = getIpfsLink(avatar);
+                        linkage.push({ type: "ipfs", value: avatar });
+                        linkage.push({ type: "url", value: url });
+                        return { linkage, url };
+                    }
+                    case "erc721":
+                    case "erc1155": {
+                        // Depending on the ERC type, use tokenURI(uint256) or url(uint256)
+                        const selector = (scheme === "erc721") ? "0xc87b56dd" : "0x0e89341c";
+                        linkage.push({ type: scheme, value: avatar });
+                        // The owner of this name
+                        const owner = await this.getAddress();
+                        if (owner == null) {
+                            linkage.push({ type: "!owner", value: "" });
+                            throw new Error("!owner");
+                        }
+                        const comps = (match[2] || "").split("/");
+                        if (comps.length !== 2) {
+                            linkage.push({ type: `!${scheme}caip`, value: (match[2] || "") });
+                            throw new Error("!caip");
+                        }
+                        const addr = getAddress(comps[0]);
+                        const tokenId = numPad$1(comps[1]);
+                        // Check that this account owns the token
+                        if (scheme === "erc721") {
+                            // ownerOf(uint256 tokenId)
+                            const tokenOwner = callAddress(await this.provider.call({
+                                to: addr, data: concat(["0x6352211e", tokenId])
+                            }));
+                            if (owner !== tokenOwner) {
+                                linkage.push({ type: "!owner", value: tokenOwner });
+                                throw new Error("!owner");
+                            }
+                            linkage.push({ type: "owner", value: tokenOwner });
+                        }
+                        else if (scheme === "erc1155") {
+                            // balanceOf(address owner, uint256 tokenId)
+                            const balance = getBigInt(await this.provider.call({
+                                to: addr, data: concat(["0x00fdd58e", zeroPadValue(owner, 32), tokenId])
+                            }));
+                            if (!balance) {
+                                linkage.push({ type: "!balance", value: "0" });
+                                throw new Error("!balance");
+                            }
+                            linkage.push({ type: "balance", value: balance.toString() });
+                        }
+                        // Call the token contract for the metadata URL
+                        const tx = {
+                            to: comps[0],
+                            data: concat([selector, tokenId])
+                        };
+                        let metadataUrl = parseString(await this.provider.call(tx), 0);
+                        if (metadataUrl == null) {
+                            linkage.push({ type: "!metadata-url", value: "" });
+                            throw new Error("!metadata-url");
+                        }
+                        linkage.push({ type: "metadata-url-base", value: metadataUrl });
+                        // ERC-1155 allows a generic {id} in the URL
+                        if (scheme === "erc1155") {
+                            metadataUrl = metadataUrl.replace("{id}", hexlify(tokenId).substring(2));
+                            linkage.push({ type: "metadata-url-expanded", value: metadataUrl });
+                        }
+                        // Transform IPFS metadata links
+                        if (metadataUrl.match(/^ipfs:/i)) {
+                            metadataUrl = getIpfsLink(metadataUrl);
+                        }
+                        linkage.push({ type: "metadata-url", value: metadataUrl });
+                        // Get the token metadata
+                        let metadata = {};
+                        const response = await (new FetchRequest(metadataUrl)).send();
+                        response.assertOk();
+                        try {
+                            metadata = response.bodyJson;
+                        }
+                        catch (error) {
+                            try {
+                                linkage.push({ type: "!metadata", value: response.bodyText });
+                            }
+                            catch (error) {
+                                const bytes = response.body;
+                                if (bytes) {
+                                    linkage.push({ type: "!metadata", value: hexlify(bytes) });
+                                }
+                                throw error;
+                            }
+                            throw error;
+                        }
+                        if (!metadata) {
+                            linkage.push({ type: "!metadata", value: "" });
+                            throw new Error("!metadata");
+                        }
+                        linkage.push({ type: "metadata", value: JSON.stringify(metadata) });
+                        // Pull the image URL out
+                        let imageUrl = metadata.image;
+                        if (typeof (imageUrl) !== "string") {
+                            linkage.push({ type: "!imageUrl", value: "" });
+                            throw new Error("!imageUrl");
+                        }
+                        if (imageUrl.match(/^(https:\/\/|data:)/i)) {
+                            // Allow
+                        }
+                        else {
+                            // Transform IPFS link to gateway
+                            const ipfs = imageUrl.match(matcherIpfs);
+                            if (ipfs == null) {
+                                linkage.push({ type: "!imageUrl-ipfs", value: imageUrl });
+                                throw new Error("!imageUrl-ipfs");
+                            }
+                            linkage.push({ type: "imageUrl-ipfs", value: imageUrl });
+                            imageUrl = getIpfsLink(imageUrl);
+                        }
+                        linkage.push({ type: "url", value: imageUrl });
+                        return { linkage, url: imageUrl };
+                    }
+                }
+            }
+        }
+        catch (error) {
+            console.log("EE", error);
+        }
+        return { linkage, url: null };
+    }
+    static async #getResolver(provider, name) {
+        const network = await provider.getNetwork();
+        const ensPlugin = network.getPlugin("org.ethers.network-plugins.ens");
+        // No ENS...
+        if (!ensPlugin) {
+            return throwError("network does not support ENS", "UNSUPPORTED_OPERATION", {
+                operation: "getResolver", info: { network: network.name }
+            });
+        }
+        try {
+            // keccak256("resolver(bytes32)")
+            const addrData = await provider.call({
+                to: ensPlugin.address,
+                data: concat(["0x0178b8bf", namehash(name)]),
+                enableCcipRead: true
+            });
+            const addr = callAddress(addrData);
+            if (addr === dataSlice(ZeroHash, 0, 20)) {
+                return null;
+            }
+            return addr;
+        }
+        catch (error) {
+            // ENS registry cannot throw errors on resolver(bytes32),
+            // so probably a link error
+            throw error;
+        }
+        return null;
+    }
+    static async fromName(provider, name) {
+        let currentName = name;
+        while (true) {
+            if (currentName === "" || currentName === ".") {
+                return null;
+            }
+            // Optimization since the eth node cannot change and does
+            // not have a wildcar resolver
+            if (name !== "eth" && currentName === "eth") {
+                return null;
+            }
+            // Check the current node for a resolver
+            const addr = await EnsResolver.#getResolver(provider, currentName);
+            // Found a resolver!
+            if (addr != null) {
+                const resolver = new EnsResolver(provider, addr, name);
+                // Legacy resolver found, using EIP-2544 so it isn't safe to use
+                if (currentName !== name && !(await resolver.supportsWildcard())) {
+                    return null;
+                }
+                return resolver;
+            }
+            // Get the parent node
+            currentName = currentName.split(".").slice(1).join(".");
+        }
     }
 }
 
@@ -10454,6 +10526,7 @@ class Network {
      *  Returns a new Network for the %%network%% name or chainId.
      */
     static from(network) {
+        injectCommonNetworks();
         // Default network
         if (network == null) {
             return Network.from("mainnet");
@@ -10510,6 +10583,80 @@ class Network {
         Networks.set(nameOrChainId, networkFunc);
     }
 }
+// See: https://chainlist.org
+let injected = false;
+function injectCommonNetworks() {
+    if (injected) {
+        return;
+    }
+    injected = true;
+    /// Register popular Ethereum networks
+    function registerEth(name, chainId, options) {
+        const func = function () {
+            const network = new Network(name, chainId);
+            // We use 0 to disable ENS
+            if (options.ensNetwork != null) {
+                network.attachPlugin(new EnsPlugin(null, options.ensNetwork));
+            }
+            if (options.priorityFee) {
+                //                network.attachPlugin(new MaxPriorityFeePlugin(options.priorityFee));
+            }
+            /*
+                        if (options.etherscan) {
+                            const { url, apiKey } = options.etherscan;
+                            network.attachPlugin(new EtherscanPlugin(url, apiKey));
+                        }
+            */
+            network.attachPlugin(new GasCostPlugin());
+            return network;
+        };
+        // Register the network by name and chain ID
+        Network.register(name, func);
+        Network.register(chainId, func);
+        if (options.altNames) {
+            options.altNames.forEach((name) => {
+                Network.register(name, func);
+            });
+        }
+    }
+    registerEth("mainnet", 1, { ensNetwork: 1, altNames: ["homestead"] });
+    registerEth("ropsten", 3, { ensNetwork: 3 });
+    registerEth("rinkeby", 4, { ensNetwork: 4 });
+    registerEth("goerli", 5, { ensNetwork: 5 });
+    registerEth("kovan", 42, { ensNetwork: 42 });
+    registerEth("classic", 61, {});
+    registerEth("classicKotti", 6, {});
+    registerEth("xdai", 100, { ensNetwork: 1 });
+    // Polygon has a 35 gwei maxPriorityFee requirement
+    registerEth("matic", 137, {
+        ensNetwork: 1,
+        //        priorityFee: 35000000000,
+        etherscan: {
+            apiKey: "W6T8DJW654GNTQ34EFEYYP3EZD9DD27CT7",
+            url: "https:/\/api.polygonscan.com/"
+        }
+    });
+    registerEth("maticMumbai", 80001, {
+        //        priorityFee: 35000000000,
+        etherscan: {
+            apiKey: "W6T8DJW654GNTQ34EFEYYP3EZD9DD27CT7",
+            url: "https:/\/api-testnet.polygonscan.com/"
+        }
+    });
+    registerEth("bnb", 56, {
+        ensNetwork: 1,
+        etherscan: {
+            apiKey: "EVTS3CU31AATZV72YQ55TPGXGMVIFUQ9M9",
+            url: "http:/\/api.bscscan.com"
+        }
+    });
+    registerEth("bnbt", 97, {
+        etherscan: {
+            apiKey: "EVTS3CU31AATZV72YQ55TPGXGMVIFUQ9M9",
+            url: "http:/\/api-testnet.bscscan.com"
+        }
+    });
+}
 
 //import { resolveAddress } from "@ethersproject/address";
 const BN_0 = BigInt(0);
@@ -10562,14 +10709,14 @@ function copyRequest(req) {
         result.data = hexlify(req.data);
     }
     const bigIntKeys = "chainId,gasLimit,gasPrice,maxFeePerGas, maxPriorityFeePerGas,value".split(/,/);
-    for (const key in bigIntKeys) {
+    for (const key of bigIntKeys) {
         if (!(key in req) || req[key] == null) {
             continue;
         }
         result[key] = getBigInt(req[key], `request.${key}`);
     }
     const numberKeys = "type,nonce".split(/,/);
-    for (const key in numberKeys) {
+    for (const key of numberKeys) {
         if (!(key in req) || req[key] == null) {
             continue;
         }
@@ -11822,7 +11969,7 @@ class AbstractProvider {
         }
         catch (error) {
             // CCIP Read OffchainLookup
-            if (!this.disableCcipRead && isCallException(error) && attempt >= 0 && blockTag === "latest" && transaction.to != null && dataSlice(error.data, 0, 4) === "0x556f1830") {
+            if (!this.disableCcipRead && isCallException(error) && error.data && attempt >= 0 && blockTag === "latest" && transaction.to != null && dataSlice(error.data, 0, 4) === "0x556f1830") {
                 const data = error.data;
                 const txSender = await resolveAddress(transaction.to, this);
                 // Parse the CCIP Read Arguments
@@ -11839,10 +11986,16 @@ class AbstractProvider {
                 // Check the sender of the OffchainLookup matches the transaction
                 if (ccipArgs.sender.toLowerCase() !== txSender.toLowerCase()) {
                     return throwError("CCIP Read sender mismatch", "CALL_EXCEPTION", {
-                        data, transaction,
-                        errorSignature: "OffchainLookup(address,string[],bytes,bytes4,bytes)",
-                        errorName: "OffchainLookup",
-                        errorArgs: ccipArgs.errorArgs
+                        action: "call",
+                        data,
+                        reason: "OffchainLookup",
+                        transaction: transaction,
+                        invocation: null,
+                        revert: {
+                            signature: "OffchainLookup(address,string[],bytes,bytes4,bytes)",
+                            name: "OffchainLookup",
+                            args: ccipArgs.errorArgs
+                        }
                     });
                 }
                 const ccipResult = await this.ccipReadFetch(transaction, ccipArgs.calldata, ccipArgs.urls);
@@ -11900,8 +12053,19 @@ class AbstractProvider {
     }
     // Write
     async broadcastTransaction(signedTx) {
-        throw new Error();
-        return {};
+        const { blockNumber, hash, network } = await resolveProperties({
+            blockNumber: this.getBlockNumber(),
+            hash: this._perform({
+                method: "broadcastTransaction",
+                signedTransaction: signedTx
+            }),
+            network: this.getNetwork()
+        });
+        const tx = Transaction.from(signedTx);
+        if (tx.hash !== hash) {
+            throw new Error("@TODO: the returned hash did not match");
+        }
+        return this._wrapTransactionResponse(tx, network).replaceableTransaction(blockNumber);
     }
     async #getBlock(block, includeTransactions) {
         // @TODO: Add CustomBlockPlugin check
@@ -12497,14 +12661,14 @@ class AbstractSigner {
                 return address;
             });
         }
-        return pop;
+        return { pop: await resolveProperties(pop), provider };
     }
     async populateCall(tx) {
-        const pop = await this.#populate("populateCall", tx);
+        const { pop } = await this.#populate("populateCall", tx);
         return pop;
     }
     async populateTransaction(tx) {
-        const pop = await this.#populate("populateTransaction", tx);
+        const { pop, provider } = await this.#populate("populateTransaction", tx);
         if (pop.nonce == null) {
             pop.nonce = await this.getNonce("pending");
         }
@@ -12522,10 +12686,95 @@ class AbstractSigner {
         else {
             pop.chainId = network.chainId;
         }
+        // Do not allow mixing pre-eip-1559 and eip-1559 properties
+        const hasEip1559 = (pop.maxFeePerGas != null || pop.maxPriorityFeePerGas != null);
+        if (pop.gasPrice != null && (pop.type === 2 || hasEip1559)) {
+            throwArgumentError("eip-1559 transaction do not support gasPrice", "tx", tx);
+        }
+        else if ((pop.type === 0 || pop.type === 1) && hasEip1559) {
+            throwArgumentError("pre-eip-1559 transaction do not support maxFeePerGas/maxPriorityFeePerGas", "tx", tx);
+        }
+        if ((pop.type === 2 || pop.type == null) && (pop.maxFeePerGas != null && pop.maxPriorityFeePerGas != null)) {
+            // Fully-formed EIP-1559 transaction (skip getFeeData)
+            pop.type = 2;
+        }
+        else if (pop.type === 0 || pop.type === 1) {
+            // Explicit Legacy or EIP-2930 transaction
+            // We need to get fee data to determine things
+            const feeData = await provider.getFeeData();
+            if (feeData.gasPrice == null) {
+                throwError("network does not support gasPrice", "UNSUPPORTED_OPERATION", {
+                    operation: "getGasPrice"
+                });
+            }
+            // Populate missing gasPrice
+            if (pop.gasPrice == null) {
+                pop.gasPrice = feeData.gasPrice;
+            }
+        }
+        else {
+            // We need to get fee data to determine things
+            const feeData = await provider.getFeeData();
+            if (pop.type == null) {
+                // We need to auto-detect the intended type of this transaction...
+                if (feeData.maxFeePerGas != null && feeData.maxPriorityFeePerGas != null) {
+                    // The network supports EIP-1559!
+                    // Upgrade transaction from null to eip-1559
+                    pop.type = 2;
+                    if (pop.gasPrice != null) {
+                        // Using legacy gasPrice property on an eip-1559 network,
+                        // so use gasPrice as both fee properties
+                        const gasPrice = pop.gasPrice;
+                        delete pop.gasPrice;
+                        pop.maxFeePerGas = gasPrice;
+                        pop.maxPriorityFeePerGas = gasPrice;
+                    }
+                    else {
+                        // Populate missing fee data
+                        if (pop.maxFeePerGas == null) {
+                            pop.maxFeePerGas = feeData.maxFeePerGas;
+                        }
+                        if (pop.maxPriorityFeePerGas == null) {
+                            pop.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+                        }
+                    }
+                }
+                else if (feeData.gasPrice != null) {
+                    // Network doesn't support EIP-1559...
+                    // ...but they are trying to use EIP-1559 properties
+                    if (hasEip1559) {
+                        throwError("network does not support EIP-1559", "UNSUPPORTED_OPERATION", {
+                            operation: "populateTransaction"
+                        });
+                    }
+                    // Populate missing fee data
+                    if (pop.gasPrice == null) {
+                        pop.gasPrice = feeData.gasPrice;
+                    }
+                    // Explicitly set untyped transaction to legacy
+                    // @TODO: Maybe this shold allow type 1?
+                    pop.type = 0;
+                }
+                else {
+                    // getFeeData has failed us.
+                    throwError("failed to get consistent fee data", "UNSUPPORTED_OPERATION", {
+                        operation: "signer.getFeeData"
+                    });
+                }
+            }
+            else if (pop.type === 2) {
+                // Explicitly using EIP-1559
+                // Populate missing fee data
+                if (pop.maxFeePerGas == null) {
+                    pop.maxFeePerGas = feeData.maxFeePerGas;
+                }
+                if (pop.maxPriorityFeePerGas == null) {
+                    pop.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+                }
+            }
+        }
         //@TOOD: Don't await all over the place; save them up for
         // the end for better batching
-        //@TODO: Copy type logic from AbstractSigner in v5
-        // Test how many batches is actually sent for sending a tx; compare before/after
         return await resolveProperties(pop);
     }
     async estimateGas(tx) {
@@ -12540,7 +12789,8 @@ class AbstractSigner {
     }
     async sendTransaction(tx) {
         const provider = this.#checkProvider("sendTransaction");
-        const txObj = Transaction.from(await this.populateTransaction(tx));
+        const pop = await this.populateTransaction(tx);
+        const txObj = Transaction.from(pop);
         return await provider.broadcastTransaction(await this.signTransaction(txObj));
     }
 }
@@ -12612,521 +12862,6 @@ class WrappedSigner extends AbstractSigner {
         return await this.#signer.signTypedData(domain, types, value);
     }
 }
-
-// Show the throttle message only once
-const shown = new Set();
-function showThrottleMessage(service) {
-    if (shown.has(service)) {
-        return;
-    }
-    shown.add(service);
-    console.log("========= NOTICE =========");
-    console.log(`Request-Rate Exceeded for ${service} (this message will not be repeated)`);
-    console.log("");
-    console.log("The default API keys for each service are provided as a highly-throttled,");
-    console.log("community resource for low-traffic projects and early prototyping.");
-    console.log("");
-    console.log("While your application will continue to function, we highly recommended");
-    console.log("signing up for your own API keys to improve performance, increase your");
-    console.log("request rate/limit and enable other perks, such as metrics and advanced APIs.");
-    console.log("");
-    console.log("For more details: https:/\/docs.ethers.io/api-keys/");
-    console.log("==========================");
-}
-
-const THROTTLE = 2000;
-const EtherscanPluginId = "org.ethers.plugins.etherscan";
-class EtherscanPlugin extends NetworkPlugin {
-    baseUrl;
-    communityApiKey;
-    constructor(baseUrl, communityApiKey) {
-        super(EtherscanPluginId);
-        //if (communityApiKey == null) { communityApiKey = null; }
-        defineProperties(this, { baseUrl, communityApiKey });
-    }
-    clone() {
-        return new EtherscanPlugin(this.baseUrl, this.communityApiKey);
-    }
-}
-let nextId = 1;
-class BaseEtherscanProvider extends AbstractProvider {
-    network;
-    apiKey;
-    #plugin;
-    constructor(_network, apiKey) {
-        super();
-        const network = Network.from(_network);
-        this.#plugin = network.getPlugin(EtherscanPluginId);
-        if (apiKey == null && this.#plugin) {
-            apiKey = this.#plugin.communityApiKey;
-        }
-        defineProperties(this, { apiKey, network });
-        // Test that the network is supported by Etherscan
-        this.getBaseUrl();
-    }
-    getBaseUrl() {
-        if (this.#plugin) {
-            return this.#plugin.baseUrl;
-        }
-        switch (this.network.name) {
-            case "mainnet":
-                return "https:/\/api.etherscan.io";
-            case "ropsten":
-                return "https:/\/api-ropsten.etherscan.io";
-            case "rinkeby":
-                return "https:/\/api-rinkeby.etherscan.io";
-            case "kovan":
-                return "https:/\/api-kovan.etherscan.io";
-            case "goerli":
-                return "https:/\/api-goerli.etherscan.io";
-            default:
-        }
-        return throwArgumentError("unsupported network", "network", this.network);
-    }
-    getUrl(module, params) {
-        const query = Object.keys(params).reduce((accum, key) => {
-            const value = params[key];
-            if (value != null) {
-                accum += `&${key}=${value}`;
-            }
-            return accum;
-        }, "");
-        const apiKey = ((this.apiKey) ? `&apikey=${this.apiKey}` : "");
-        return `${this.getBaseUrl()}/api?module=${module}${query}${apiKey}`;
-    }
-    getPostUrl() {
-        return `${this.getBaseUrl()}/api`;
-    }
-    getPostData(module, params) {
-        params.module = module;
-        params.apikey = this.apiKey;
-        return params;
-    }
-    async detectNetwork() {
-        return this.network;
-    }
-    async fetch(module, params, post) {
-        const id = nextId++;
-        const url = (post ? this.getPostUrl() : this.getUrl(module, params));
-        const payload = (post ? this.getPostData(module, params) : null);
-        this.emit("debug", { action: "sendRequest", id, url, payload: payload });
-        const request = new FetchRequest(url);
-        request.setThrottleParams({ slotInterval: 1000 });
-        request.retryFunc = (req, resp, attempt) => {
-            if (this.isCommunityResource()) {
-                showThrottleMessage("Etherscan");
-            }
-            return Promise.resolve(true);
-        };
-        request.processFunc = async (request, response) => {
-            const result = response.hasBody() ? JSON.parse(toUtf8String(response.body)) : {};
-            const throttle = ((typeof (result.result) === "string") ? result.result : "").toLowerCase().indexOf("rate limit") >= 0;
-            if (module === "proxy") {
-                // This JSON response indicates we are being throttled
-                if (result && result.status == 0 && result.message == "NOTOK" && throttle) {
-                    this.emit("debug", { action: "receiveError", id, reason: "proxy-NOTOK", error: result });
-                    response.throwThrottleError(result.result, THROTTLE);
-                }
-            }
-            else {
-                if (throttle) {
-                    this.emit("debug", { action: "receiveError", id, reason: "null result", error: result.result });
-                    response.throwThrottleError(result.result, THROTTLE);
-                }
-            }
-            return response;
-        };
-        if (payload) {
-            request.setHeader("content-type", "application/x-www-form-urlencoded; charset=UTF-8");
-            request.body = Object.keys(payload).map((k) => `${k}=${payload[k]}`).join("&");
-        }
-        const response = await request.send();
-        try {
-            response.assertOk();
-        }
-        catch (error) {
-            this.emit("debug", { action: "receiveError", id, error, reason: "assertOk" });
-        }
-        if (!response.hasBody()) {
-            this.emit("debug", { action: "receiveError", id, error: "missing body", reason: "null body" });
-            throw new Error();
-        }
-        const result = JSON.parse(toUtf8String(response.body));
-        if (module === "proxy") {
-            if (result.jsonrpc != "2.0") {
-                this.emit("debug", { action: "receiveError", id, result, reason: "invalid JSON-RPC" });
-                const error = new Error("invalid response");
-                error.result = JSON.stringify(result);
-                throw error;
-            }
-            if (result.error) {
-                this.emit("debug", { action: "receiveError", id, result, reason: "JSON-RPC error" });
-                const error = new Error(result.error.message || "unknown error");
-                if (result.error.code) {
-                    error.code = result.error.code;
-                }
-                if (result.error.data) {
-                    error.data = result.error.data;
-                }
-                throw error;
-            }
-            this.emit("debug", { action: "receiveRequest", id, result });
-            return result.result;
-        }
-        else {
-            // getLogs, getHistory have weird success responses
-            if (result.status == 0 && (result.message === "No records found" || result.message === "No transactions found")) {
-                this.emit("debug", { action: "receiveRequest", id, result });
-                return result.result;
-            }
-            if (result.status != 1 || (typeof (result.message) === "string" && !result.message.match(/^OK/))) {
-                this.emit("debug", { action: "receiveError", id, result });
-                const error = new Error("invalid response");
-                error.result = JSON.stringify(result);
-                //        if ((result.result || "").toLowerCase().indexOf("rate limit") >= 0) {
-                //            error.throttleRetry = true;
-                //        }
-                throw error;
-            }
-            this.emit("debug", { action: "receiveRequest", id, result });
-            return result.result;
-        }
-    }
-    // The transaction has already been sanitized by the calls in Provider
-    _getTransactionPostData(transaction) {
-        const result = {};
-        for (let key in transaction) {
-            if (transaction[key] == null) {
-                continue;
-            }
-            let value = transaction[key];
-            if (key === "type" && value === 0) {
-                continue;
-            }
-            // Quantity-types require no leading zero, unless 0
-            if ({ type: true, gasLimit: true, gasPrice: true, maxFeePerGs: true, maxPriorityFeePerGas: true, nonce: true, value: true }[key]) {
-                value = toQuantity(hexlify(value));
-            }
-            else if (key === "accessList") {
-                value = "[" + accessListify(value).map((set) => {
-                    return `{address:"${set.address}",storageKeys:["${set.storageKeys.join('","')}"]}`;
-                }).join(",") + "]";
-            }
-            else {
-                value = hexlify(value);
-            }
-            result[key] = value;
-        }
-        return result;
-    }
-    _checkError(req, error, transaction) {
-        /*
-            let body = "";
-            if (isError(error, Logger.Errors.SERVER_ERROR) && error.response && error.response.hasBody()) {
-                body = toUtf8String(error.response.body);
-            }
-            console.log(body);
-    
-            // Undo the "convenience" some nodes are attempting to prevent backwards
-            // incompatibility; maybe for v6 consider forwarding reverts as errors
-            if (method === "call" && body) {
-    
-                // Etherscan keeps changing their string
-                if (body.match(/reverted/i) || body.match(/VM execution error/i)) {
-    
-                    // Etherscan prefixes the data like "Reverted 0x1234"
-                    let data = e.data;
-                    if (data) { data = "0x" + data.replace(/^.*0x/i, ""); }
-                    if (!isHexString(data)) { data = "0x"; }
-    
-                    logger.throwError("call exception", Logger.Errors.CALL_EXCEPTION, {
-                        error, data
-                    });
-                }
-            }
-    
-            // Get the message from any nested error structure
-            let message = error.message;
-            if (isError(error, Logger.Errors.SERVER_ERROR)) {
-                if (error.error && typeof(error.error.message) === "string") {
-                    message = error.error.message;
-                } else if (typeof(error.body) === "string") {
-                    message = error.body;
-                } else if (typeof(error.responseText) === "string") {
-                    message = error.responseText;
-                }
-            }
-            message = (message || "").toLowerCase();
-    
-            // "Insufficient funds. The account you tried to send transaction from
-            // does not have enough funds. Required 21464000000000 and got: 0"
-            if (message.match(/insufficient funds/)) {
-                logger.throwError("insufficient funds for intrinsic transaction cost", Logger.Errors.INSUFFICIENT_FUNDS, {
-                   error, transaction, info: { method }
-                });
-            }
-    
-            // "Transaction with the same hash was already imported."
-            if (message.match(/same hash was already imported|transaction nonce is too low|nonce too low/)) {
-                logger.throwError("nonce has already been used", Logger.Errors.NONCE_EXPIRED, {
-                   error, transaction, info: { method }
-                });
-            }
-    
-            // "Transaction gas price is too low. There is another transaction with
-            // same nonce in the queue. Try increasing the gas price or incrementing the nonce."
-            if (message.match(/another transaction with same nonce/)) {
-                 logger.throwError("replacement fee too low", Logger.Errors.REPLACEMENT_UNDERPRICED, {
-                    error, transaction, info: { method }
-                 });
-            }
-    
-            if (message.match(/execution failed due to an exception|execution reverted/)) {
-                logger.throwError("cannot estimate gas; transaction may fail or may require manual gas limit", Logger.Errors.UNPREDICTABLE_GAS_LIMIT, {
-                    error, transaction, info: { method }
-                });
-            }
-    */
-        throw error;
-    }
-    async _detectNetwork() {
-        return this.network;
-    }
-    async _perform(req) {
-        switch (req.method) {
-            case "chainId":
-                return this.network.chainId;
-            case "getBlockNumber":
-                return this.fetch("proxy", { action: "eth_blockNumber" });
-            case "getGasPrice":
-                return this.fetch("proxy", { action: "eth_gasPrice" });
-            case "getBalance":
-                // Returns base-10 result
-                return this.fetch("account", {
-                    action: "balance",
-                    address: req.address,
-                    tag: req.blockTag
-                });
-            case "getTransactionCount":
-                return this.fetch("proxy", {
-                    action: "eth_getTransactionCount",
-                    address: req.address,
-                    tag: req.blockTag
-                });
-            case "getCode":
-                return this.fetch("proxy", {
-                    action: "eth_getCode",
-                    address: req.address,
-                    tag: req.blockTag
-                });
-            case "getStorage":
-                return this.fetch("proxy", {
-                    action: "eth_getStorageAt",
-                    address: req.address,
-                    position: req.position,
-                    tag: req.blockTag
-                });
-            case "broadcastTransaction":
-                return this.fetch("proxy", {
-                    action: "eth_sendRawTransaction",
-                    hex: req.signedTransaction
-                }, true).catch((error) => {
-                    return this._checkError(req, error, req.signedTransaction);
-                });
-            case "getBlock":
-                if ("blockTag" in req) {
-                    return this.fetch("proxy", {
-                        action: "eth_getBlockByNumber",
-                        tag: req.blockTag,
-                        boolean: (req.includeTransactions ? "true" : "false")
-                    });
-                }
-                return throwError("getBlock by blockHash not supported by Etherscan", "UNSUPPORTED_OPERATION", {
-                    operation: "getBlock(blockHash)"
-                });
-            case "getTransaction":
-                return this.fetch("proxy", {
-                    action: "eth_getTransactionByHash",
-                    txhash: req.hash
-                });
-            case "getTransactionReceipt":
-                return this.fetch("proxy", {
-                    action: "eth_getTransactionReceipt",
-                    txhash: req.hash
-                });
-            case "call": {
-                if (req.blockTag !== "latest") {
-                    throw new Error("EtherscanProvider does not support blockTag for call");
-                }
-                const postData = this._getTransactionPostData(req.transaction);
-                postData.module = "proxy";
-                postData.action = "eth_call";
-                try {
-                    return await this.fetch("proxy", postData, true);
-                }
-                catch (error) {
-                    return this._checkError(req, error, req.transaction);
-                }
-            }
-            case "estimateGas": {
-                const postData = this._getTransactionPostData(req.transaction);
-                postData.module = "proxy";
-                postData.action = "eth_estimateGas";
-                try {
-                    return await this.fetch("proxy", postData, true);
-                }
-                catch (error) {
-                    return this._checkError(req, error, req.transaction);
-                }
-            }
-            /*
-                        case "getLogs": {
-                            // Needs to complain if more than one address is passed in
-                            const args: Record<string, any> = { action: "getLogs" }
-            
-                            if (params.filter.fromBlock) {
-                                args.fromBlock = checkLogTag(params.filter.fromBlock);
-                            }
-            
-                            if (params.filter.toBlock) {
-                                args.toBlock = checkLogTag(params.filter.toBlock);
-                            }
-            
-                            if (params.filter.address) {
-                                args.address = params.filter.address;
-                            }
-            
-                            // @TODO: We can handle slightly more complicated logs using the logs API
-                            if (params.filter.topics && params.filter.topics.length > 0) {
-                                if (params.filter.topics.length > 1) {
-                                    logger.throwError("unsupported topic count", Logger.Errors.UNSUPPORTED_OPERATION, { topics: params.filter.topics });
-                                }
-                                if (params.filter.topics.length === 1) {
-                                    const topic0 = params.filter.topics[0];
-                                    if (typeof(topic0) !== "string" || topic0.length !== 66) {
-                                        logger.throwError("unsupported topic format", Logger.Errors.UNSUPPORTED_OPERATION, { topic0: topic0 });
-                                    }
-                                    args.topic0 = topic0;
-                                }
-                            }
-            
-                            const logs: Array<any> = await this.fetch("logs", args);
-            
-                            // Cache txHash => blockHash
-                            let blocks: { [tag: string]: string } = {};
-            
-                            // Add any missing blockHash to the logs
-                            for (let i = 0; i < logs.length; i++) {
-                                const log = logs[i];
-                                if (log.blockHash != null) { continue; }
-                                if (blocks[log.blockNumber] == null) {
-                                    const block = await this.getBlock(log.blockNumber);
-                                    if (block) {
-                                        blocks[log.blockNumber] = block.hash;
-                                    }
-                                }
-            
-                                log.blockHash = blocks[log.blockNumber];
-                            }
-            
-                            return logs;
-                        }
-            */
-            default:
-                break;
-        }
-        return super._perform(req);
-    }
-    async getNetwork() {
-        return this.network;
-    }
-    async getEtherPrice() {
-        if (this.network.name !== "mainnet") {
-            return 0.0;
-        }
-        return parseFloat((await this.fetch("stats", { action: "ethprice" })).ethusd);
-    }
-    isCommunityResource() {
-        const plugin = this.network.getPlugin(EtherscanPluginId);
-        if (plugin) {
-            return (plugin.communityApiKey === this.apiKey);
-        }
-        return (this.apiKey == null);
-    }
-}
-
-/**
- *  Exports the same Network as "./network.js" except with common
- *  networks injected registered.
- */
-// See: https://chainlist.org
-function injectCommonNetworks() {
-    /// Register popular Ethereum networks
-    function registerEth(name, chainId, options) {
-        const func = function () {
-            const network = new Network(name, chainId);
-            // We use 0 to disable ENS
-            if (options.ensNetwork != null) {
-                network.attachPlugin(new EnsPlugin(null, options.ensNetwork));
-            }
-            if (options.priorityFee) {
-                //                network.attachPlugin(new MaxPriorityFeePlugin(options.priorityFee));
-            }
-            if (options.etherscan) {
-                const { url, apiKey } = options.etherscan;
-                network.attachPlugin(new EtherscanPlugin(url, apiKey));
-            }
-            network.attachPlugin(new GasCostPlugin());
-            return network;
-        };
-        // Register the network by name and chain ID
-        Network.register(name, func);
-        Network.register(chainId, func);
-        if (options.altNames) {
-            options.altNames.forEach((name) => {
-                Network.register(name, func);
-            });
-        }
-    }
-    registerEth("mainnet", 1, { ensNetwork: 1, altNames: ["homestead"] });
-    registerEth("ropsten", 3, { ensNetwork: 3 });
-    registerEth("rinkeby", 4, { ensNetwork: 4 });
-    registerEth("goerli", 5, { ensNetwork: 5 });
-    registerEth("kovan", 42, { ensNetwork: 42 });
-    registerEth("classic", 61, {});
-    registerEth("classicKotti", 6, {});
-    registerEth("xdai", 100, { ensNetwork: 1 });
-    // Polygon has a 35 gwei maxPriorityFee requirement
-    registerEth("matic", 137, {
-        ensNetwork: 1,
-        //        priorityFee: 35000000000,
-        etherscan: {
-            apiKey: "W6T8DJW654GNTQ34EFEYYP3EZD9DD27CT7",
-            url: "https:/\/api.polygonscan.com/"
-        }
-    });
-    registerEth("maticMumbai", 80001, {
-        //        priorityFee: 35000000000,
-        etherscan: {
-            apiKey: "W6T8DJW654GNTQ34EFEYYP3EZD9DD27CT7",
-            url: "https:/\/api-testnet.polygonscan.com/"
-        }
-    });
-    registerEth("bnb", 56, {
-        ensNetwork: 1,
-        etherscan: {
-            apiKey: "EVTS3CU31AATZV72YQ55TPGXGMVIFUQ9M9",
-            url: "http:/\/api.bscscan.com"
-        }
-    });
-    registerEth("bnbt", 97, {
-        etherscan: {
-            apiKey: "EVTS3CU31AATZV72YQ55TPGXGMVIFUQ9M9",
-            url: "http:/\/api-testnet.bscscan.com"
-        }
-    });
-}
-injectCommonNetworks();
 
 //const BN_0 = BigInt("0");
 const BN_1 = BigInt("1");
@@ -13776,7 +13511,7 @@ class JsonRpcSigner extends AbstractSigner {
             tx.from = this.address;
         }
         const hexTx = this.provider.getRpcTransaction(tx);
-        return await this.provider.send("eth_sign_Transaction", [hexTx]);
+        return await this.provider.send("eth_signTransaction", [hexTx]);
     }
     async signMessage(_message) {
         const message = ((typeof (_message) === "string") ? toUtf8Bytes(_message) : _message);
@@ -14194,31 +13929,101 @@ class JsonRpcApiProvider extends AbstractProvider {
      *  that different nodes return, coercing them into a machine-readable
      *  standardized error.
      */
-    getRpcError(payload, error) {
+    getRpcError(payload, _error) {
         const { method } = payload;
-        if (method === "eth_call") {
-            const transaction = (payload.params[0]);
+        const { error } = _error;
+        if (method === "eth_call" || method === "eth_estimateGas") {
             const result = spelunkData(error);
-            if (result) {
-                // @TODO: Extract errorSignature, errorName, errorArgs, reason if
-                //        it is Error(string) or Panic(uint25)
-                return makeError("execution reverted during JSON-RPC call", "CALL_EXCEPTION", {
-                    data: result.data,
-                    transaction
-                });
-            }
-            return makeError("missing revert data during JSON-RPC call", "CALL_EXCEPTION", {
-                data: "0x", transaction, info: { error }
-            });
+            const e = getBuiltinCallException((method === "eth_call") ? "call" : "estimateGas", (payload.params[0]), (result ? result.data : null));
+            e.info = { error, payload };
+            return e;
+            /*
+                        let message = "missing revert data during JSON-RPC call";
+            
+                        const action = <"call" | "estimateGas" | "unknown">(({ eth_call: "call", eth_estimateGas: "estimateGas" })[method] || "unknown");
+                        let data: null | string = null;
+                        let reason: null | string = null;
+                        const transaction = <{ from: string, to: string, data: string }>((<any>payload).params[0]);
+                        const invocation = null;
+                        let revert: null | { signature: string, name: string, args: Array<any> } = null;
+            
+                        if (result) {
+                            // @TODO: Extract errorSignature, errorName, errorArgs, reason if
+                            //        it is Error(string) or Panic(uint25)
+                            message = "execution reverted during JSON-RPC call";
+                            data = result.data;
+            
+                            let bytes = getBytes(data);
+                            if (bytes.length % 32 !== 4) {
+                                message += " (could not parse reason; invalid data length)";
+            
+                            } else if (data.substring(0, 10) === "0x08c379a0") {
+                                // Error(string)
+                                try {
+                                    if (bytes.length < 68) { throw new Error("bad length"); }
+                                    bytes = bytes.slice(4);
+                                    const pointer = getNumber(hexlify(bytes.slice(0, 32)));
+                                    bytes = bytes.slice(pointer);
+                                    if (bytes.length < 32) { throw new Error("overrun"); }
+                                    const length = getNumber(hexlify(bytes.slice(0, 32)));
+                                    bytes = bytes.slice(32);
+                                    if (bytes.length < length) { throw new Error("overrun"); }
+                                    reason = toUtf8String(bytes.slice(0, length));
+                                    revert = {
+                                        signature: "Error(string)",
+                                        name: "Error",
+                                        args: [ reason ]
+                                    };
+                                    message += `: ${ JSON.stringify(reason) }`;
+            
+                                } catch (error) {
+                                    console.log(error);
+                                    message += " (could not parse reason; invalid data length)";
+                                }
+            
+                            } else if (data.substring(0, 10) === "0x4e487b71") {
+                                // Panic(uint256)
+                                try {
+                                    if (bytes.length !== 36) { throw new Error("bad length"); }
+                                    const arg = getNumber(hexlify(bytes.slice(4)));
+                                    revert = {
+                                        signature: "Panic(uint256)",
+                                        name: "Panic",
+                                        args: [ arg ]
+                                    };
+                                    reason = `Panic due to ${ PanicReasons.get(Number(arg)) || "UNKNOWN" }(${ arg })`;
+                                    message += `: ${ reason }`;
+                                } catch (error) {
+                                    console.log(error);
+                                    message += " (could not parse panic reason)";
+                                }
+                            }
+                        }
+            
+                        return makeError(message, "CALL_EXCEPTION", {
+                            action, data, reason, transaction, invocation, revert,
+                            info: { payload, error }
+                        });
+                        */
         }
+        // Only estimateGas and call can return arbitrary contract-defined text, so now we
+        // we can process text safely.
         const message = JSON.stringify(spelunkMessage(error));
-        if (method === "eth_estimateGas") {
-            const transaction = (payload.params[0]);
-            if (message.match(/gas required exceeds allowance|always failing transaction|execution reverted/)) {
-                return makeError("cannot estimate gas; transaction may fail or may require manual gas limit", "UNPREDICTABLE_GAS_LIMIT", {
-                    transaction
-                });
-            }
+        if (typeof (error.message) === "string" && error.message.match(/user denied|ethers-user-denied/i)) {
+            const actionMap = {
+                eth_sign: "signMessage",
+                personal_sign: "signMessage",
+                eth_signTypedData_v4: "signTypedData",
+                eth_signTransaction: "signTransaction",
+                eth_sendTransaction: "sendTransaction",
+                eth_requestAccounts: "requestAccess",
+                wallet_requestAccounts: "requestAccess",
+            };
+            return makeError(`user rejected action`, "ACTION_REJECTED", {
+                action: (actionMap[method] || "unknown"),
+                reason: "rejected",
+                info: { payload, error }
+            });
         }
         if (method === "eth_sendRawTransaction" || method === "eth_sendTransaction") {
             const transaction = (payload.params[0]);
@@ -14239,6 +14044,11 @@ class JsonRpcApiProvider extends AbstractProvider {
                     operation: method, info: { transaction }
                 });
             }
+        }
+        if (message.match(/the method .* does not exist/i)) {
+            return makeError("unsupported operation", "UNSUPPORTED_OPERATION", {
+                operation: payload.method
+            });
         }
         return makeError("could not coalesce error", "UNKNOWN_ERROR", { error });
     }
@@ -14285,7 +14095,7 @@ class JsonRpcApiProvider extends AbstractProvider {
         // Account index
         if (typeof (address) === "number") {
             const accounts = (await accountsPromise);
-            if (address > accounts.length) {
+            if (address >= accounts.length) {
                 throw new Error("no such account");
             }
             return new JsonRpcSigner(this, accounts[address]);
@@ -14304,6 +14114,35 @@ class JsonRpcApiProvider extends AbstractProvider {
         throw new Error("invalid account");
     }
 }
+class JsonRpcApiPollingProvider extends JsonRpcApiProvider {
+    #pollingInterval;
+    constructor(network, options) {
+        super(network, options);
+        this.#pollingInterval = 4000;
+    }
+    _getSubscriber(sub) {
+        const subscriber = super._getSubscriber(sub);
+        if (isPollable(subscriber)) {
+            subscriber.pollingInterval = this.#pollingInterval;
+        }
+        return subscriber;
+    }
+    /**
+     *  The polling interval (default: 4000 ms)
+     */
+    get pollingInterval() { return this.#pollingInterval; }
+    set pollingInterval(value) {
+        if (!Number.isInteger(value) || value < 0) {
+            throw new Error("invalid interval");
+        }
+        this.#pollingInterval = value;
+        this._forEachSubscriber((sub) => {
+            if (isPollable(sub)) {
+                sub.pollingInterval = this.#pollingInterval;
+            }
+        });
+    }
+}
 /**
  *  The JsonRpcProvider is one of the most common Providers,
  *  which performs all operations over HTTP (or HTTPS) requests.
@@ -14312,9 +14151,8 @@ class JsonRpcApiProvider extends AbstractProvider {
  *  number; when it advances, all block-base events are then checked
  *  for updates.
  */
-class JsonRpcProvider extends JsonRpcApiProvider {
+class JsonRpcProvider extends JsonRpcApiPollingProvider {
     #connect;
-    #pollingInterval;
     constructor(url, network, options) {
         if (url == null) {
             url = "http:/\/localhost:8545";
@@ -14326,7 +14164,6 @@ class JsonRpcProvider extends JsonRpcApiProvider {
         else {
             this.#connect = url.clone();
         }
-        this.#pollingInterval = 4000;
     }
     _getConnection() {
         return this.#connect.clone();
@@ -14350,20 +14187,34 @@ class JsonRpcProvider extends JsonRpcApiProvider {
         }
         return resp;
     }
-    /**
-     *  The polling interval (default: 4000 ms)
-     */
-    get pollingInterval() { return this.#pollingInterval; }
-    set pollingInterval(value) {
-        if (!Number.isInteger(value) || value < 0) {
-            throw new Error("invalid interval");
+    async verifyMessage(signerAddress, message, signature) {
+        const finalDigest = hashMessage(message);
+        return this.verifyFinalDigest(signerAddress, finalDigest, signature);
+    }
+    async verifyTypedData(signer, domain, types, typedDataMessage, signature) {
+        const finalDigest = TypedDataEncoder.hash(domain, types, typedDataMessage);
+        return this._verifyTypedDataFinalDigest(signer, finalDigest, signature);
+    }
+    async verifyFinalDigest(signerAddress, finalDigest, signature) {
+        // First try: elliptic curve signature (EOA)
+        try {
+            const recoveredAddr = recoverAddress(finalDigest, signature);
+            if (recoveredAddr && (recoveredAddr.toLowerCase() === signerAddress.toLowerCase()))
+                return true;
         }
-        this.#pollingInterval = value;
-        this._forEachSubscriber((sub) => {
-            if (isPollable(sub)) {
-                sub.pollingInterval = this.#pollingInterval;
-            }
-        });
+        catch (e) { }
+        // 2nd try: Getting code from deployed smart contract to call 1271 isValidSignature
+        if (await this._verifyTypedDataFinalDigest(signerAddress, finalDigest, signature))
+            return true;
+        return false;
+    }
+    async _verifyTypedDataFinalDigest(signer, finalDigest, signature) {
+        const code = await this.provider.getCode(signer);
+        if (code && code !== '0x') {
+            const contract = new Contract(signer, ['function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)'], this.provider);
+            return (await contract.isValidSignature(finalDigest, signature)) === '0x1626ba7e';
+        }
+        return false;
     }
 }
 function spelunkData(value) {
@@ -14421,31 +14272,130 @@ function spelunkMessage(value) {
     return result;
 }
 
+;
+class BrowserProvider extends JsonRpcApiPollingProvider {
+    #request;
+    constructor(ethereum, network) {
+        super(network, { batchMaxCount: 1 });
+        this.#request = async (method, params) => {
+            const payload = { method, params };
+            this.emit("debug", { action: "sendEip1193Request", payload });
+            try {
+                const result = await ethereum.request(payload);
+                this.emit("debug", { action: "receiveEip1193Result", result });
+                return result;
+            }
+            catch (e) {
+                const error = new Error(e.message);
+                error.code = e.code;
+                error.data = e.data;
+                error.payload = payload;
+                this.emit("debug", { action: "receiveEip1193Error", error });
+                throw error;
+            }
+        };
+    }
+    async send(method, params) {
+        await this._start();
+        return await super.send(method, params);
+    }
+    async _send(payload) {
+        assertArgument(!Array.isArray(payload), "EIP-1193 does not support batch request", "payload", payload);
+        try {
+            const result = await this.#request(payload.method, payload.params || []);
+            return [{ id: payload.id, result }];
+        }
+        catch (e) {
+            return [{
+                    id: payload.id,
+                    error: { code: e.code, data: e.data, message: e.message }
+                }];
+        }
+    }
+    getRpcError(payload, error) {
+        error = JSON.parse(JSON.stringify(error));
+        // EIP-1193 gives us some machine-readable error codes, so rewrite
+        // them into 
+        switch (error.error.code || -1) {
+            case 4001:
+                error.error.message = `ethers-user-denied: ${error.error.message}`;
+                break;
+            case 4200:
+                error.error.message = `ethers-unsupported: ${error.error.message}`;
+                break;
+        }
+        return super.getRpcError(payload, error);
+    }
+    async hasSigner(address) {
+        if (address == null) {
+            address = 0;
+        }
+        const accounts = await this.send("eth_accounts", []);
+        if (typeof (address) === "number") {
+            return (accounts.length > address);
+        }
+        address = address.toLowerCase();
+        return accounts.filter((a) => (a.toLowerCase() === address)).length !== 0;
+    }
+    async getSigner(address) {
+        if (address == null) {
+            address = 0;
+        }
+        if (!(await this.hasSigner(address))) {
+            try {
+                //const resp = 
+                await this.#request("eth_requestAccounts", []);
+                //console.log("RESP", resp);
+            }
+            catch (error) {
+                const payload = error.payload;
+                throw this.getRpcError(payload, { id: payload.id, error });
+            }
+        }
+        return await super.getSigner(address);
+    }
+}
+
+// Show the throttle message only once
+const shown = new Set();
+function showThrottleMessage(service) {
+    if (shown.has(service)) {
+        return;
+    }
+    shown.add(service);
+    console.log("========= NOTICE =========");
+    console.log(`Request-Rate Exceeded for ${service} (this message will not be repeated)`);
+    console.log("");
+    console.log("The default API keys for each service are provided as a highly-throttled,");
+    console.log("community resource for low-traffic projects and early prototyping.");
+    console.log("");
+    console.log("While your application will continue to function, we highly recommended");
+    console.log("signing up for your own API keys to improve performance, increase your");
+    console.log("request rate/limit and enable other perks, such as metrics and advanced APIs.");
+    console.log("");
+    console.log("For more details: https:/\/docs.ethers.io/api-keys/");
+    console.log("==========================");
+}
+
 const defaultApiKey$1 = "_gg7wSSi0KMBsdKnGVfHDueq6xMB9EkC";
 function getHost$2(name) {
     switch (name) {
         case "mainnet":
             return "eth-mainnet.alchemyapi.io";
-        case "ropsten":
-            return "eth-ropsten.alchemyapi.io";
-        case "rinkeby":
-            return "eth-rinkeby.alchemyapi.io";
         case "goerli":
-            return "eth-goerli.alchemyapi.io";
-        case "kovan":
-            return "eth-kovan.alchemyapi.io";
+            return "eth-goerli.g.alchemy.com";
+        case "arbitrum":
+            return "arb-mainnet.g.alchemy.com";
+        case "arbitrum-goerli":
+            return "arb-goerli.g.alchemy.com";
         case "matic":
             return "polygon-mainnet.g.alchemy.com";
         case "maticmum":
             return "polygon-mumbai.g.alchemy.com";
-        case "arbitrum":
-            return "arb-mainnet.g.alchemy.com";
-        case "arbitrum-rinkeby":
-            return "arb-rinkeby.g.alchemy.com";
         case "optimism":
             return "opt-mainnet.g.alchemy.com";
-        case "optimism-kovan":
-            return "opt-kovan.g.alchemy.com";
+        case "optimism-goerli":
+            return "opt-goerli.g.alchemy.com";
     }
     return throwArgumentError("unsupported network", "network", name);
 }
@@ -14470,8 +14420,11 @@ class AlchemyProvider extends JsonRpcProvider {
     async _perform(req) {
         // https://docs.alchemy.com/reference/trace-transaction
         if (req.method === "getTransactionResult") {
-            const trace = await this.send("trace_transaction", [req.hash]);
-            if (trace == null) {
+            const { trace, tx } = await resolveProperties({
+                trace: this.send("trace_transaction", [req.hash]),
+                tx: this.getTransaction(req.hash)
+            });
+            if (trace == null || tx == null) {
                 return null;
             }
             let data;
@@ -14484,7 +14437,12 @@ class AlchemyProvider extends JsonRpcProvider {
             if (data) {
                 if (error) {
                     throwError("an error occurred during transaction executions", "CALL_EXCEPTION", {
-                        data
+                        action: "getTransactionResult",
+                        data,
+                        reason: null,
+                        transaction: tx,
+                        invocation: null,
+                        revert: null // @TODO
                     });
                 }
                 return data;
@@ -14576,6 +14534,442 @@ class CloudflareProvider extends JsonRpcProvider {
             return throwArgumentError("unsupported network", "network", _network);
         }
         super("https:/\/cloudflare-eth.com/", network, { staticNetwork: network });
+    }
+}
+
+const THROTTLE = 2000;
+const EtherscanPluginId = "org.ethers.plugins.etherscan";
+class EtherscanPlugin extends NetworkPlugin {
+    baseUrl;
+    communityApiKey;
+    constructor(baseUrl, communityApiKey) {
+        super(EtherscanPluginId);
+        //if (communityApiKey == null) { communityApiKey = null; }
+        defineProperties(this, { baseUrl, communityApiKey });
+    }
+    clone() {
+        return new EtherscanPlugin(this.baseUrl, this.communityApiKey);
+    }
+}
+let nextId = 1;
+class BaseEtherscanProvider extends AbstractProvider {
+    network;
+    apiKey;
+    #plugin;
+    constructor(_network, apiKey) {
+        super();
+        const network = Network.from(_network);
+        this.#plugin = network.getPlugin(EtherscanPluginId);
+        if (apiKey == null && this.#plugin) {
+            apiKey = this.#plugin.communityApiKey;
+        }
+        defineProperties(this, { apiKey, network });
+        // Test that the network is supported by Etherscan
+        this.getBaseUrl();
+    }
+    getBaseUrl() {
+        if (this.#plugin) {
+            return this.#plugin.baseUrl;
+        }
+        switch (this.network.name) {
+            case "mainnet":
+                return "https:/\/api.etherscan.io";
+            case "goerli":
+                return "https:/\/api-goerli.etherscan.io";
+            case "sepolia":
+                return "https:/\/api-sepolia.etherscan.io";
+            case "arbitrum":
+                return "https:/\/api.arbiscan.io";
+            case "arbitrum-goerli":
+                return "https:/\/api-goerli.arbiscan.io";
+            case "matic":
+                return "https:/\/api.polygonscan.com";
+            case "maticmum":
+                return "https:/\/api-testnet.polygonscan.com";
+            case "optimism":
+                return "https:/\/api-optimistic.etherscan.io";
+            case "optimism-goerli":
+                return "https:/\/api-goerli-optimistic.etherscan.io";
+            default:
+        }
+        return throwArgumentError("unsupported network", "network", this.network);
+    }
+    getUrl(module, params) {
+        const query = Object.keys(params).reduce((accum, key) => {
+            const value = params[key];
+            if (value != null) {
+                accum += `&${key}=${value}`;
+            }
+            return accum;
+        }, "");
+        const apiKey = ((this.apiKey) ? `&apikey=${this.apiKey}` : "");
+        return `${this.getBaseUrl()}/api?module=${module}${query}${apiKey}`;
+    }
+    getPostUrl() {
+        return `${this.getBaseUrl()}/api`;
+    }
+    getPostData(module, params) {
+        params.module = module;
+        params.apikey = this.apiKey;
+        return params;
+    }
+    async detectNetwork() {
+        return this.network;
+    }
+    async fetch(module, params, post) {
+        const id = nextId++;
+        const url = (post ? this.getPostUrl() : this.getUrl(module, params));
+        const payload = (post ? this.getPostData(module, params) : null);
+        this.emit("debug", { action: "sendRequest", id, url, payload: payload });
+        const request = new FetchRequest(url);
+        request.setThrottleParams({ slotInterval: 1000 });
+        request.retryFunc = (req, resp, attempt) => {
+            if (this.isCommunityResource()) {
+                showThrottleMessage("Etherscan");
+            }
+            return Promise.resolve(true);
+        };
+        request.processFunc = async (request, response) => {
+            const result = response.hasBody() ? JSON.parse(toUtf8String(response.body)) : {};
+            const throttle = ((typeof (result.result) === "string") ? result.result : "").toLowerCase().indexOf("rate limit") >= 0;
+            if (module === "proxy") {
+                // This JSON response indicates we are being throttled
+                if (result && result.status == 0 && result.message == "NOTOK" && throttle) {
+                    this.emit("debug", { action: "receiveError", id, reason: "proxy-NOTOK", error: result });
+                    response.throwThrottleError(result.result, THROTTLE);
+                }
+            }
+            else {
+                if (throttle) {
+                    this.emit("debug", { action: "receiveError", id, reason: "null result", error: result.result });
+                    response.throwThrottleError(result.result, THROTTLE);
+                }
+            }
+            return response;
+        };
+        if (payload) {
+            request.setHeader("content-type", "application/x-www-form-urlencoded; charset=UTF-8");
+            request.body = Object.keys(payload).map((k) => `${k}=${payload[k]}`).join("&");
+        }
+        const response = await request.send();
+        try {
+            response.assertOk();
+        }
+        catch (error) {
+            this.emit("debug", { action: "receiveError", id, error, reason: "assertOk" });
+        }
+        if (!response.hasBody()) {
+            this.emit("debug", { action: "receiveError", id, error: "missing body", reason: "null body" });
+            throw new Error();
+        }
+        const result = JSON.parse(toUtf8String(response.body));
+        if (module === "proxy") {
+            if (result.jsonrpc != "2.0") {
+                this.emit("debug", { action: "receiveError", id, result, reason: "invalid JSON-RPC" });
+                const error = new Error("invalid response");
+                error.result = JSON.stringify(result);
+                throw error;
+            }
+            if (result.error) {
+                this.emit("debug", { action: "receiveError", id, result, reason: "JSON-RPC error" });
+                const error = new Error(result.error.message || "unknown error");
+                if (result.error.code) {
+                    error.code = result.error.code;
+                }
+                if (result.error.data) {
+                    error.data = result.error.data;
+                }
+                throw error;
+            }
+            this.emit("debug", { action: "receiveRequest", id, result });
+            return result.result;
+        }
+        else {
+            // getLogs, getHistory have weird success responses
+            if (result.status == 0 && (result.message === "No records found" || result.message === "No transactions found")) {
+                this.emit("debug", { action: "receiveRequest", id, result });
+                return result.result;
+            }
+            if (result.status != 1 || (typeof (result.message) === "string" && !result.message.match(/^OK/))) {
+                this.emit("debug", { action: "receiveError", id, result });
+                const error = new Error("invalid response");
+                error.result = JSON.stringify(result);
+                //        if ((result.result || "").toLowerCase().indexOf("rate limit") >= 0) {
+                //            error.throttleRetry = true;
+                //        }
+                throw error;
+            }
+            this.emit("debug", { action: "receiveRequest", id, result });
+            return result.result;
+        }
+    }
+    // The transaction has already been sanitized by the calls in Provider
+    _getTransactionPostData(transaction) {
+        const result = {};
+        for (let key in transaction) {
+            if (transaction[key] == null) {
+                continue;
+            }
+            let value = transaction[key];
+            if (key === "type" && value === 0) {
+                continue;
+            }
+            // Quantity-types require no leading zero, unless 0
+            if ({ type: true, gasLimit: true, gasPrice: true, maxFeePerGs: true, maxPriorityFeePerGas: true, nonce: true, value: true }[key]) {
+                value = toQuantity(hexlify(value));
+            }
+            else if (key === "accessList") {
+                value = "[" + accessListify(value).map((set) => {
+                    return `{address:"${set.address}",storageKeys:["${set.storageKeys.join('","')}"]}`;
+                }).join(",") + "]";
+            }
+            else {
+                value = hexlify(value);
+            }
+            result[key] = value;
+        }
+        return result;
+    }
+    _checkError(req, error, transaction) {
+        if (req.method === "call" || req.method === "estimateGas") {
+            if (error.message.match(/execution reverted/i)) {
+                const e = getBuiltinCallException(req.method, req.transaction, error.data);
+                e.info = { request: req, error };
+                throw e;
+            }
+        }
+        /*
+            let body = "";
+            if (isError(error, Logger.Errors.SERVER_ERROR) && error.response && error.response.hasBody()) {
+                body = toUtf8String(error.response.body);
+            }
+            console.log(body);
+    
+            // Undo the "convenience" some nodes are attempting to prevent backwards
+            // incompatibility; maybe for v6 consider forwarding reverts as errors
+            if (method === "call" && body) {
+    
+                // Etherscan keeps changing their string
+                if (body.match(/reverted/i) || body.match(/VM execution error/i)) {
+    
+                    // Etherscan prefixes the data like "Reverted 0x1234"
+                    let data = e.data;
+                    if (data) { data = "0x" + data.replace(/^.*0x/i, ""); }
+                    if (!isHexString(data)) { data = "0x"; }
+    
+                    logger.throwError("call exception", Logger.Errors.CALL_EXCEPTION, {
+                        error, data
+                    });
+                }
+            }
+    
+            // Get the message from any nested error structure
+            let message = error.message;
+            if (isError(error, Logger.Errors.SERVER_ERROR)) {
+                if (error.error && typeof(error.error.message) === "string") {
+                    message = error.error.message;
+                } else if (typeof(error.body) === "string") {
+                    message = error.body;
+                } else if (typeof(error.responseText) === "string") {
+                    message = error.responseText;
+                }
+            }
+            message = (message || "").toLowerCase();
+    
+            // "Insufficient funds. The account you tried to send transaction from
+            // does not have enough funds. Required 21464000000000 and got: 0"
+            if (message.match(/insufficient funds/)) {
+                logger.throwError("insufficient funds for intrinsic transaction cost", Logger.Errors.INSUFFICIENT_FUNDS, {
+                   error, transaction, info: { method }
+                });
+            }
+    
+            // "Transaction with the same hash was already imported."
+            if (message.match(/same hash was already imported|transaction nonce is too low|nonce too low/)) {
+                logger.throwError("nonce has already been used", Logger.Errors.NONCE_EXPIRED, {
+                   error, transaction, info: { method }
+                });
+            }
+    
+            // "Transaction gas price is too low. There is another transaction with
+            // same nonce in the queue. Try increasing the gas price or incrementing the nonce."
+            if (message.match(/another transaction with same nonce/)) {
+                 logger.throwError("replacement fee too low", Logger.Errors.REPLACEMENT_UNDERPRICED, {
+                    error, transaction, info: { method }
+                 });
+            }
+    
+            if (message.match(/execution failed due to an exception|execution reverted/)) {
+                logger.throwError("cannot estimate gas; transaction may fail or may require manual gas limit", Logger.Errors.UNPREDICTABLE_GAS_LIMIT, {
+                    error, transaction, info: { method }
+                });
+            }
+    */
+        throw error;
+    }
+    async _detectNetwork() {
+        return this.network;
+    }
+    async _perform(req) {
+        switch (req.method) {
+            case "chainId":
+                return this.network.chainId;
+            case "getBlockNumber":
+                return this.fetch("proxy", { action: "eth_blockNumber" });
+            case "getGasPrice":
+                return this.fetch("proxy", { action: "eth_gasPrice" });
+            case "getBalance":
+                // Returns base-10 result
+                return this.fetch("account", {
+                    action: "balance",
+                    address: req.address,
+                    tag: req.blockTag
+                });
+            case "getTransactionCount":
+                return this.fetch("proxy", {
+                    action: "eth_getTransactionCount",
+                    address: req.address,
+                    tag: req.blockTag
+                });
+            case "getCode":
+                return this.fetch("proxy", {
+                    action: "eth_getCode",
+                    address: req.address,
+                    tag: req.blockTag
+                });
+            case "getStorage":
+                return this.fetch("proxy", {
+                    action: "eth_getStorageAt",
+                    address: req.address,
+                    position: req.position,
+                    tag: req.blockTag
+                });
+            case "broadcastTransaction":
+                return this.fetch("proxy", {
+                    action: "eth_sendRawTransaction",
+                    hex: req.signedTransaction
+                }, true).catch((error) => {
+                    return this._checkError(req, error, req.signedTransaction);
+                });
+            case "getBlock":
+                if ("blockTag" in req) {
+                    return this.fetch("proxy", {
+                        action: "eth_getBlockByNumber",
+                        tag: req.blockTag,
+                        boolean: (req.includeTransactions ? "true" : "false")
+                    });
+                }
+                return throwError("getBlock by blockHash not supported by Etherscan", "UNSUPPORTED_OPERATION", {
+                    operation: "getBlock(blockHash)"
+                });
+            case "getTransaction":
+                return this.fetch("proxy", {
+                    action: "eth_getTransactionByHash",
+                    txhash: req.hash
+                });
+            case "getTransactionReceipt":
+                return this.fetch("proxy", {
+                    action: "eth_getTransactionReceipt",
+                    txhash: req.hash
+                });
+            case "call": {
+                if (req.blockTag !== "latest") {
+                    throw new Error("EtherscanProvider does not support blockTag for call");
+                }
+                const postData = this._getTransactionPostData(req.transaction);
+                postData.module = "proxy";
+                postData.action = "eth_call";
+                try {
+                    return await this.fetch("proxy", postData, true);
+                }
+                catch (error) {
+                    return this._checkError(req, error, req.transaction);
+                }
+            }
+            case "estimateGas": {
+                const postData = this._getTransactionPostData(req.transaction);
+                postData.module = "proxy";
+                postData.action = "eth_estimateGas";
+                try {
+                    return await this.fetch("proxy", postData, true);
+                }
+                catch (error) {
+                    return this._checkError(req, error, req.transaction);
+                }
+            }
+            /*
+                        case "getLogs": {
+                            // Needs to complain if more than one address is passed in
+                            const args: Record<string, any> = { action: "getLogs" }
+            
+                            if (params.filter.fromBlock) {
+                                args.fromBlock = checkLogTag(params.filter.fromBlock);
+                            }
+            
+                            if (params.filter.toBlock) {
+                                args.toBlock = checkLogTag(params.filter.toBlock);
+                            }
+            
+                            if (params.filter.address) {
+                                args.address = params.filter.address;
+                            }
+            
+                            // @TODO: We can handle slightly more complicated logs using the logs API
+                            if (params.filter.topics && params.filter.topics.length > 0) {
+                                if (params.filter.topics.length > 1) {
+                                    logger.throwError("unsupported topic count", Logger.Errors.UNSUPPORTED_OPERATION, { topics: params.filter.topics });
+                                }
+                                if (params.filter.topics.length === 1) {
+                                    const topic0 = params.filter.topics[0];
+                                    if (typeof(topic0) !== "string" || topic0.length !== 66) {
+                                        logger.throwError("unsupported topic format", Logger.Errors.UNSUPPORTED_OPERATION, { topic0: topic0 });
+                                    }
+                                    args.topic0 = topic0;
+                                }
+                            }
+            
+                            const logs: Array<any> = await this.fetch("logs", args);
+            
+                            // Cache txHash => blockHash
+                            let blocks: { [tag: string]: string } = {};
+            
+                            // Add any missing blockHash to the logs
+                            for (let i = 0; i < logs.length; i++) {
+                                const log = logs[i];
+                                if (log.blockHash != null) { continue; }
+                                if (blocks[log.blockNumber] == null) {
+                                    const block = await this.getBlock(log.blockNumber);
+                                    if (block) {
+                                        blocks[log.blockNumber] = block.hash;
+                                    }
+                                }
+            
+                                log.blockHash = blocks[log.blockNumber];
+                            }
+            
+                            return logs;
+                        }
+            */
+            default:
+                break;
+        }
+        return super._perform(req);
+    }
+    async getNetwork() {
+        return this.network;
+    }
+    async getEtherPrice() {
+        if (this.network.name !== "mainnet") {
+            return 0.0;
+        }
+        return parseFloat((await this.fetch("stats", { action: "ethprice" })).ethusd);
+    }
+    isCommunityResource() {
+        const plugin = this.network.getPlugin(EtherscanPluginId);
+        if (plugin) {
+            return (plugin.communityApiKey === this.apiKey);
+        }
+        return (this.apiKey == null);
     }
 }
 
@@ -14909,26 +15303,22 @@ function getHost(name) {
     switch (name) {
         case "mainnet":
             return "mainnet.infura.io";
-        case "ropsten":
-            return "ropsten.infura.io";
-        case "rinkeby":
-            return "rinkeby.infura.io";
-        case "kovan":
-            return "kovan.infura.io";
         case "goerli":
             return "goerli.infura.io";
+        case "sepolia":
+            return "sepolia.infura.io";
+        case "arbitrum":
+            return "arbitrum-mainnet.infura.io";
+        case "arbitrum-goerli":
+            return "arbitrum-goerli.infura.io";
         case "matic":
             return "polygon-mainnet.infura.io";
         case "maticmum":
             return "polygon-mumbai.infura.io";
         case "optimism":
             return "optimism-mainnet.infura.io";
-        case "optimism-kovan":
-            return "optimism-kovan.infura.io";
-        case "arbitrum":
-            return "arbitrum-mainnet.infura.io";
-        case "arbitrum-rinkeby":
-            return "arbitrum-rinkeby.infura.io";
+        case "optimism-goerli":
+            return "optimism-goerli.infura.io";
     }
     return throwArgumentError("unsupported network", "network", name);
 }
@@ -15261,18 +15651,18 @@ class WrappedMethod extends _WrappedMethodBase() {
                 operation: "call"
             });
         }
-        const fragment = this.getFragment(...args);
         const tx = await this.populateTransaction(...args);
         let result = "0x";
         try {
             result = await runner.call(tx);
         }
         catch (error) {
-            if (isCallException(error)) {
-                throw this._contract.interface.makeError(fragment, error.data, tx);
+            if (isCallException(error) && error.data) {
+                throw this._contract.interface.makeError(error.data, tx);
             }
             throw error;
         }
+        const fragment = this.getFragment(...args);
         return this._contract.interface.decodeFunctionResult(fragment, result);
     }
 }
@@ -16039,15 +16429,21 @@ class BaseWallet extends AbstractSigner {
     connect(provider) {
         return new BaseWallet(this.#signingKey, provider);
     }
-    async signTransaction(_tx) {
+    async signTransaction(tx) {
         // Replace any Addressable or ENS name with an address
-        const tx = Object.assign({}, _tx, await resolveProperties({
-            to: (_tx.to ? resolveAddress(_tx.to, this.provider) : undefined),
-            from: (_tx.from ? resolveAddress(_tx.from, this.provider) : undefined)
-        }));
+        const { to, from } = await resolveProperties({
+            to: (tx.to ? resolveAddress(tx.to, this.provider) : undefined),
+            from: (tx.from ? resolveAddress(tx.from, this.provider) : undefined)
+        });
+        if (to != null) {
+            tx.to = to;
+        }
+        if (from != null) {
+            tx.from = from;
+        }
         if (tx.from != null) {
-            if (getAddress(tx.from) !== this.address) {
-                throwArgumentError("transaction from address mismatch", "tx.from", _tx.from);
+            if (getAddress((tx.from)) !== this.address) {
+                throwArgumentError("transaction from address mismatch", "tx.from", tx.from);
             }
             delete tx.from;
         }
@@ -16057,6 +16453,11 @@ class BaseWallet extends AbstractSigner {
         return btx.serialized;
     }
     async signMessage(message) {
+        return this.signingKey.sign(hashMessage(message)).serialized;
+    }
+    // @TODO: Add a secialized signTx and signTyped sync that enforces
+    // all parameters are known?
+    signMessageSync(message) {
         return this.signingKey.sign(hashMessage(message)).serialized;
     }
     async signTypedData(domain, types, value) {
@@ -17637,6 +18038,7 @@ var ethers = /*#__PURE__*/Object.freeze({
     JsonRpcApiProvider: JsonRpcApiProvider,
     JsonRpcProvider: JsonRpcProvider,
     JsonRpcSigner: JsonRpcSigner,
+    BrowserProvider: BrowserProvider,
     AlchemyProvider: AlchemyProvider,
     AnkrProvider: AnkrProvider,
     CloudflareProvider: CloudflareProvider,
@@ -17724,5 +18126,5 @@ var ethers = /*#__PURE__*/Object.freeze({
     WordlistOwlA: WordlistOwlA
 });
 
-export { AbiCoder, AbstractProvider, AlchemyProvider, AnkrProvider, BaseContract, CloudflareProvider, ConstructorFragment, Contract, ContractEventPayload, ContractFactory, ContractTransactionReceipt, ContractTransactionResponse, ErrorFragment, EtherSymbol, EtherscanProvider, EventFragment, EventLog, FallbackProvider, FetchCancelSignal, FetchRequest, FetchResponse, FixedFormat, FixedNumber, Fragment, FunctionFragment, HDNodeVoidWallet, HDNodeWallet, HDNodeWalletManager, Indexed, InfuraProvider, Interface, IpcSocketProvider, JsonRpcApiProvider, JsonRpcProvider, JsonRpcSigner, LangEn, LogDescription, MaxInt256, MaxUint256, MessagePrefix, MinInt256, Mnemonic, N$1 as N, NegativeOne, Network, One, ParamType, Result, Signature, SigningKey, SocketProvider, Transaction, TransactionDescription, Two, Typed, TypedDataEncoder, Utf8ErrorFuncs, Wallet, WebSocketProvider, WeiPerEther, Wordlist, WordlistOwl, WordlistOwlA, Zero, ZeroAddress, ZeroHash, _toEscapedUtf8String, accessListify, assertArgument, assertArgumentCount, assertNormalize, assertPrivate, checkResultErrors, computeAddress, computeHmac, concat, dataLength, dataSlice, decodeBase58, decodeBase64, decodeBytes32String, decodeRlp, decryptCrowdsaleJson, decryptKeystoreJson, decryptKeystoreJsonSync, defaultAbiCoder, defaultPath$1 as defaultPath, dnsEncode, encodeBase58, encodeBase64, encodeBytes32String, encodeRlp, encryptKeystoreJson, ethers, formatEther, formatFixed, formatUnits, fromTwos, getAccountPath, getAddress, getBigInt, getBytes, getBytesCopy, getCreate2Address, getCreateAddress, getIcapAddress, getIpfsGatewayFunc, getNumber, hashMessage, hexlify, id, isBytesLike, isCallException, isCrowdsaleJson, isError, isHexString, isKeystoreJson, isValidName, keccak256, langEn, lock, makeError, mask, namehash, parseEther, parseFixed, parseUnits, pbkdf2, randomBytes, recoverAddress, ripemd160, scrypt, scryptSync, sha256, sha512, solidityPacked, solidityPackedKeccak256, solidityPackedSha256, stripZerosLeft, throwArgumentError, throwError, toArray, toBigInt, toHex, toNumber, toQuantity, toTwos, toUtf8Bytes, toUtf8CodePoints, toUtf8String, version, wordlists, zeroPadBytes, zeroPadValue };
+export { AbiCoder, AbstractProvider, AlchemyProvider, AnkrProvider, BaseContract, BrowserProvider, CloudflareProvider, ConstructorFragment, Contract, ContractEventPayload, ContractFactory, ContractTransactionReceipt, ContractTransactionResponse, ErrorFragment, EtherSymbol, EtherscanProvider, EventFragment, EventLog, FallbackProvider, FetchCancelSignal, FetchRequest, FetchResponse, FixedFormat, FixedNumber, Fragment, FunctionFragment, HDNodeVoidWallet, HDNodeWallet, HDNodeWalletManager, Indexed, InfuraProvider, Interface, IpcSocketProvider, JsonRpcApiProvider, JsonRpcProvider, JsonRpcSigner, LangEn, LogDescription, MaxInt256, MaxUint256, MessagePrefix, MinInt256, Mnemonic, N$1 as N, NegativeOne, Network, One, ParamType, Result, Signature, SigningKey, SocketProvider, Transaction, TransactionDescription, Two, Typed, TypedDataEncoder, Utf8ErrorFuncs, Wallet, WebSocketProvider, WeiPerEther, Wordlist, WordlistOwl, WordlistOwlA, Zero, ZeroAddress, ZeroHash, _toEscapedUtf8String, accessListify, assertArgument, assertArgumentCount, assertNormalize, assertPrivate, checkResultErrors, computeAddress, computeHmac, concat, dataLength, dataSlice, decodeBase58, decodeBase64, decodeBytes32String, decodeRlp, decryptCrowdsaleJson, decryptKeystoreJson, decryptKeystoreJsonSync, defaultAbiCoder, defaultPath$1 as defaultPath, dnsEncode, encodeBase58, encodeBase64, encodeBytes32String, encodeRlp, encryptKeystoreJson, ethers, formatEther, formatFixed, formatUnits, fromTwos, getAccountPath, getAddress, getBigInt, getBytes, getBytesCopy, getCreate2Address, getCreateAddress, getIcapAddress, getIpfsGatewayFunc, getNumber, hashMessage, hexlify, id, isBytesLike, isCallException, isCrowdsaleJson, isError, isHexString, isKeystoreJson, isValidName, keccak256, langEn, lock, makeError, mask, namehash, parseEther, parseFixed, parseUnits, pbkdf2, randomBytes, recoverAddress, ripemd160, scrypt, scryptSync, sha256, sha512, solidityPacked, solidityPackedKeccak256, solidityPackedSha256, stripZerosLeft, throwArgumentError, throwError, toArray, toBigInt, toHex, toNumber, toQuantity, toTwos, toUtf8Bytes, toUtf8CodePoints, toUtf8String, version, wordlists, zeroPadBytes, zeroPadValue };
 //# sourceMappingURL=ethers.js.map

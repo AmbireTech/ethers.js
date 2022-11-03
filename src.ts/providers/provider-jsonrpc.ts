@@ -1090,15 +1090,17 @@ export class JsonRpcProvider extends JsonRpcApiPollingProvider {
     }
     
     async verifyFinalDigest (signerAddress: string, finalDigest: BytesLike, signature: SignatureLike): Promise<boolean> {
-        // First try: elliptic curve signature (EOA)
+        // First try: Getting code from deployed smart contract to call 1271 isValidSignature
+        // The reason to check first EIP-1271 is that valid signature for eip1271 could also be a valid ecrecover sig
+        // and also one day accounts can have code if Account Abstraction get implemented 
+        if (await this._verifyTypedDataFinalDigest(signerAddress, finalDigest, signature)) return true
+
+        // 2nd try: elliptic curve signature (EOA)
         try {
             const recoveredAddr = recoverAddress(finalDigest, signature)
             if (recoveredAddr && (recoveredAddr.toLowerCase() === signerAddress.toLowerCase())) return true
         } catch(e){}
-        
-        
-        // 2nd try: Getting code from deployed smart contract to call 1271 isValidSignature
-        if (await this._verifyTypedDataFinalDigest(signerAddress, finalDigest, signature)) return true
+
         return false
     }
 

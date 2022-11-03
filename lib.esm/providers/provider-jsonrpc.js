@@ -3,9 +3,10 @@
 // https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/ethereum/eth1.0-apis/assembled-spec/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=true&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false
 import { getBuiltinCallException } from "../abi/index.js";
 import { getAddress, resolveAddress } from "../address/index.js";
-import { TypedDataEncoder } from "../hash/index.js";
-import { accessListify } from "../transaction/index.js";
+import { TypedDataEncoder, hashMessage } from "../hash/index.js";
+import { accessListify, recoverAddress } from "../transaction/index.js";
 import { defineProperties, getBigInt, hexlify, isHexString, toQuantity, toUtf8Bytes, makeError, throwArgumentError, throwError, FetchRequest, resolveProperties } from "../utils/index.js";
+import { Contract } from "../contract/index.js";
 import { AbstractProvider, UnmanagedSubscriber } from "./abstract-provider.js";
 import { AbstractSigner } from "./abstract-signer.js";
 import { Network } from "./network.js";
@@ -822,6 +823,35 @@ export class JsonRpcProvider extends JsonRpcApiPollingProvider {
             resp = [resp];
         }
         return resp;
+    }
+    async verifyMessage(signerAddress, message, signature) {
+        const finalDigest = hashMessage(message);
+        return this.verifyFinalDigest(signerAddress, finalDigest, signature);
+    }
+    async verifyTypedData(signer, domain, types, typedDataMessage, signature) {
+        const finalDigest = TypedDataEncoder.hash(domain, types, typedDataMessage);
+        return this.verifyFinalDigest(signer, finalDigest, signature);
+    }
+    async verifyFinalDigest(signerAddress, finalDigest, signature) {
+        // First try: elliptic curve signature (EOA)
+        try {
+            const recoveredAddr = recoverAddress(finalDigest, signature);
+            if (recoveredAddr && (recoveredAddr.toLowerCase() === signerAddress.toLowerCase()))
+                return true;
+        }
+        catch (e) { }
+        // 2nd try: Getting code from deployed smart contract to call 1271 isValidSignature
+        if (await this._verifyTypedDataFinalDigest(signerAddress, finalDigest, signature))
+            return true;
+        return false;
+    }
+    async _verifyTypedDataFinalDigest(signer, finalDigest, signature) {
+        const code = await this.provider.getCode(signer);
+        if (code && code !== '0x') {
+            const contract = new Contract(signer, ['function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)'], this.provider);
+            return (await contract.isValidSignature(finalDigest, signature)) === '0x1626ba7e';
+        }
+        return false;
     }
 }
 function spelunkData(value) {

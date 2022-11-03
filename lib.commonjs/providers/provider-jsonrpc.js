@@ -9,6 +9,7 @@ const index_js_2 = require("../address/index.js");
 const index_js_3 = require("../hash/index.js");
 const index_js_4 = require("../transaction/index.js");
 const index_js_5 = require("../utils/index.js");
+const index_js_6 = require("../contract/index.js");
 const abstract_provider_js_1 = require("./abstract-provider.js");
 const abstract_signer_js_1 = require("./abstract-signer.js");
 const network_js_1 = require("./network.js");
@@ -828,6 +829,35 @@ class JsonRpcProvider extends JsonRpcApiPollingProvider {
             resp = [resp];
         }
         return resp;
+    }
+    async verifyMessage(signerAddress, message, signature) {
+        const finalDigest = (0, index_js_3.hashMessage)(message);
+        return this.verifyFinalDigest(signerAddress, finalDigest, signature);
+    }
+    async verifyTypedData(signer, domain, types, typedDataMessage, signature) {
+        const finalDigest = index_js_3.TypedDataEncoder.hash(domain, types, typedDataMessage);
+        return this.verifyFinalDigest(signer, finalDigest, signature);
+    }
+    async verifyFinalDigest(signerAddress, finalDigest, signature) {
+        // First try: elliptic curve signature (EOA)
+        try {
+            const recoveredAddr = (0, index_js_4.recoverAddress)(finalDigest, signature);
+            if (recoveredAddr && (recoveredAddr.toLowerCase() === signerAddress.toLowerCase()))
+                return true;
+        }
+        catch (e) { }
+        // 2nd try: Getting code from deployed smart contract to call 1271 isValidSignature
+        if (await this._verifyTypedDataFinalDigest(signerAddress, finalDigest, signature))
+            return true;
+        return false;
+    }
+    async _verifyTypedDataFinalDigest(signer, finalDigest, signature) {
+        const code = await this.provider.getCode(signer);
+        if (code && code !== '0x') {
+            const contract = new index_js_6.Contract(signer, ['function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)'], this.provider);
+            return (await contract.isValidSignature(finalDigest, signature)) === '0x1626ba7e';
+        }
+        return false;
     }
 }
 exports.JsonRpcProvider = JsonRpcProvider;
