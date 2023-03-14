@@ -52,9 +52,17 @@ class PollingBlockSubscriber {
         // @TODO: Put a cap on the maximum number of events per loop?
         if (blockNumber !== this.#blockNumber) {
             for (let b = this.#blockNumber + 1; b <= blockNumber; b++) {
-                this.#provider.emit("block", b);
+                // We have been stopped
+                if (this.#poller == null) {
+                    return;
+                }
+                await this.#provider.emit("block", b);
             }
             this.#blockNumber = blockNumber;
+        }
+        // We have been stopped
+        if (this.#poller == null) {
+            return;
         }
         this.#poller = this.#provider._setTimeout(this.#poll.bind(this), this.#interval);
     }
@@ -62,8 +70,8 @@ class PollingBlockSubscriber {
         if (this.#poller) {
             throw new Error("subscriber already running");
         }
-        this.#poll();
         this.#poller = this.#provider._setTimeout(this.#poll.bind(this), this.#interval);
+        this.#poll();
     }
     stop() {
         if (!this.#poller) {

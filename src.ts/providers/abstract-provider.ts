@@ -12,7 +12,10 @@
 //   migrate the listener to the static event. We also need to maintain a map
 //   of Signer/ENS name to address so we can sync respond to listenerCount.
 
-import { resolveAddress } from "../address/index.js";
+import { getAddress, resolveAddress } from "../address/index.js";
+import { ZeroHash } from "../constants/index.js";
+import { Contract } from "../contract/index.js";
+import { namehash } from "../hash/index.js";
 import { Transaction } from "../transaction/index.js";
 import {
     concat, dataLength, dataSlice, hexlify, isHexString,
@@ -372,7 +375,7 @@ export class AbstractProvider implements Provider {
         this.#plugins = new Map();
         this.#pausedState = null;
 
-        this.#nextTimer = 0;
+        this.#nextTimer = 1;
         this.#timers = new Map();
 
         this.#disableCcipRead = false;
@@ -710,7 +713,7 @@ export class AbstractProvider implements Provider {
             // We may want to compute this more accurately in the future,
             // using the formula "check if the base fee is correct".
             // See: https://eips.ethereum.org/EIPS/eip-1559
-            maxPriorityFeePerGas = BigInt("1500000000");
+            maxPriorityFeePerGas = BigInt("1000000000");
 
             // Allow a network to override their maximum priority fee per gas
             //const priorityFeePlugin = (await this.getNetwork()).getPlugin<MaxPriorityFeePlugin>("org.ethers.plugins.max-priority-fee");
@@ -959,25 +962,41 @@ export class AbstractProvider implements Provider {
     }
 
     async resolveName(name: string): Promise<null | string>{
-        if (isHexString(name, 20)) { return name; }
-        //if (typeof(name) === "string") {
-            const resolver = await this.getResolver(name);
-            if (resolver) { return await resolver.getAddress(); }
-            /*
-        } else {
-            const address = await name.getAddress();
-            if (address == null) {
-                return logger.throwArgumentError("Addressable returned no address", "name", name);
-            }
-            return address;
-        }
-        */
+        const resolver = await this.getResolver(name);
+        if (resolver) { return await resolver.getAddress(); }
         return null;
     }
 
     async lookupAddress(address: string): Promise<null | string> {
-        throw new Error();
-        //return "TODO";
+        address = getAddress(address);
+        const node = namehash(address.substring(2).toLowerCase() + ".addr.reverse");
+
+        try {
+
+            const ensAddr = await EnsResolver.getEnsAddress(this);
+            const ensContract = new Contract(ensAddr, [
+                "function resolver(bytes32) view returns (address)"
+            ], this);
+
+            const resolver = await ensContract.resolver(node);
+            if (resolver == null || resolver === ZeroHash) { return null; }
+
+            const resolverContract = new Contract(resolver, [
+                "function name(bytes32) view returns (string)"
+            ], this);
+            const name = await resolverContract.name(node);
+
+            const check = await this.resolveName(name);
+            if (check !== address) {
+                console.log("FAIL", address, check);
+            }
+
+            return name;
+        } catch (error) {
+            console.log("TEMP", error);
+        }
+
+        return null;
     }
 
     async waitForTransaction(hash: string, _confirms?: null | number, timeout?: null | number): Promise<null | TransactionReceipt> {
@@ -1021,8 +1040,9 @@ export class AbstractProvider implements Provider {
     }
 
     async waitForBlock(blockTag?: BlockTag): Promise<Block> {
-        throw new Error();
-        //return new Block(<any><unknown>{ }, this);
+        assert(false, "not implemented yet", "NOT_IMPLEMENTED", {
+            operation: "waitForBlock"
+        });
     }
 
     _clearTimeout(timerId: number): void {
@@ -1141,7 +1161,9 @@ export class AbstractProvider implements Provider {
 
     async emit(event: ProviderEvent, ...args: Array<any>): Promise<boolean> {
         const sub = await this.#hasSub(event, args);
-        if (!sub) { return false; };
+        // If there is not subscription or if a recent emit removed
+        // the last of them (which also deleted the sub) do nothing
+        if (!sub || sub.listeners.length === 0) { return false; };
 
         const count = sub.listeners.length;
         sub.listeners = sub.listeners.filter(({ listener, once }) => {
@@ -1364,14 +1386,14 @@ function parseOffchainLookup(data: string): CcipArgs {
         sender: "", urls: [ ], calldata: "", selector: "", extraData: "", errorArgs: [ ]
     };
 
-    if (dataLength(data) < 5 * 32) {
-        throw new Error("insufficient OffchainLookup data");
-    }
+    assert(dataLength(data) >= 5 * 32, "insufficient OffchainLookup data", "OFFCHAIN_FAULT", {
+        reason: "insufficient OffchainLookup data"
+    });
 
     const sender = dataSlice(data, 0, 32);
-    if (dataSlice(sender, 0, 12) !== dataSlice(zeros, 0, 12)) {
-        throw new Error("corrupt OffchainLookup sender");
-    }
+    assert(dataSlice(sender, 0, 12) === dataSlice(zeros, 0, 12), "corrupt OffchainLookup sender", "OFFCHAIN_FAULT", {
+        reason: "corrupt OffchainLookup sender"
+    });
     result.sender = dataSlice(sender, 12);
 
     // Read the URLs from the response
@@ -1387,7 +1409,9 @@ function parseOffchainLookup(data: string): CcipArgs {
         }
         result.urls = urls;
     } catch (error) {
-        throw new Error("corrupt OffchainLookup urls");
+        assert(false, "corrupt OffchainLookup urls", "OFFCHAIN_FAULT", {
+            reason: "corrupt OffchainLookup urls"
+        });
     }
 
     // Get the CCIP calldata to forward
@@ -1395,12 +1419,16 @@ function parseOffchainLookup(data: string): CcipArgs {
         const calldata = _parseBytes(data, 64);
         if (calldata == null) { throw new Error("abort"); }
         result.calldata = calldata;
-    } catch (error) { throw new Error("corrupt OffchainLookup calldata"); }
+    } catch (error) {
+        assert(false, "corrupt OffchainLookup calldata", "OFFCHAIN_FAULT", {
+            reason: "corrupt OffchainLookup calldata"
+        });
+    }
 
     // Get the callbackSelector (bytes4)
-    if (dataSlice(data, 100, 128) !== dataSlice(zeros, 0, 28)) {
-        throw new Error("corrupt OffchainLookup callbaackSelector");
-    }
+    assert(dataSlice(data, 100, 128) === dataSlice(zeros, 0, 28), "corrupt OffchainLookup callbaackSelector", "OFFCHAIN_FAULT", {
+        reason: "corrupt OffchainLookup callbaackSelector"
+    });
     result.selector = dataSlice(data, 96, 100);
 
     // Get the extra data to send back to the contract as context
@@ -1408,10 +1436,13 @@ function parseOffchainLookup(data: string): CcipArgs {
         const extraData = _parseBytes(data, 128);
         if (extraData == null) { throw new Error("abort"); }
         result.extraData = extraData;
-    } catch (error) { throw new Error("corrupt OffchainLookup extraData"); }
+    } catch (error) {
+        assert(false, "corrupt OffchainLookup extraData", "OFFCHAIN_FAULT", {
+            reason: "corrupt OffchainLookup extraData"
+        });
+    }
 
     result.errorArgs = "sender,urls,calldata,selector,extraData".split(/,/).map((k) => (<any>result)[k])
-
 
     return result;
 }

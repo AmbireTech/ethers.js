@@ -1,4 +1,4 @@
-const version = "6.0.0-beta-exports.13";
+const version = "6.0.0";
 
 /**
  *  Property helper functions.
@@ -439,8 +439,8 @@ function zeroPadBytes(data, length) {
  *
  *  @_subsection: api/utils:Math Helpers  [about-maths]
  */
-const BN_0$9 = BigInt(0);
-const BN_1$6 = BigInt(1);
+const BN_0$a = BigInt(0);
+const BN_1$5 = BigInt(1);
 //const BN_Max256 = (BN_1 << BigInt(256)) - BN_1;
 // IEEE 754 support 53-bits of mantissa
 const maxValue = 0x1fffffffffffff;
@@ -453,13 +453,13 @@ const maxValue = 0x1fffffffffffff;
 function fromTwos(_value, _width) {
     const value = getUint(_value, "value");
     const width = BigInt(getNumber(_width, "width"));
-    assert$1((value >> width) === BN_0$9, "overflow", "NUMERIC_FAULT", {
+    assert$1((value >> width) === BN_0$a, "overflow", "NUMERIC_FAULT", {
         operation: "fromTwos", fault: "overflow", value: _value
     });
     // Top bit set; treat as a negative value
-    if (value >> (width - BN_1$6)) {
-        const mask = (BN_1$6 << width) - BN_1$6;
-        return -(((~value) & mask) + BN_1$6);
+    if (value >> (width - BN_1$5)) {
+        const mask = (BN_1$5 << width) - BN_1$5;
+        return -(((~value) & mask) + BN_1$5);
     }
     return value;
 }
@@ -472,14 +472,14 @@ function fromTwos(_value, _width) {
 function toTwos(_value, _width) {
     let value = getBigInt(_value, "value");
     const width = BigInt(getNumber(_width, "width"));
-    const limit = (BN_1$6 << (width - BN_1$6));
-    if (value < BN_0$9) {
+    const limit = (BN_1$5 << (width - BN_1$5));
+    if (value < BN_0$a) {
         value = -value;
         assert$1(value <= limit, "too low", "NUMERIC_FAULT", {
             operation: "toTwos", fault: "overflow", value: _value
         });
-        const mask = (BN_1$6 << width) - BN_1$6;
-        return ((~value) & mask) + BN_1$6;
+        const mask = (BN_1$5 << width) - BN_1$5;
+        return ((~value) & mask) + BN_1$5;
     }
     else {
         assert$1(value < limit, "too high", "NUMERIC_FAULT", {
@@ -494,7 +494,7 @@ function toTwos(_value, _width) {
 function mask(_value, _bits) {
     const value = getUint(_value, "value");
     const bits = BigInt(getNumber(_bits, "bits"));
-    return value & ((BN_1$6 << bits) - BN_1$6);
+    return value & ((BN_1$5 << bits) - BN_1$5);
 }
 /**
  *  Gets a [[BigInt]] from %%value%%. If it is an invalid value for
@@ -525,7 +525,7 @@ function getBigInt(value, name) {
 }
 function getUint(value, name) {
     const result = getBigInt(value, name);
-    assert$1(result >= BN_0$9, "unsigned value cannot be negative", "NUMERIC_FAULT", {
+    assert$1(result >= BN_0$a, "unsigned value cannot be negative", "NUMERIC_FAULT", {
         fault: "overflow", operation: "getUint", value
     });
     return result;
@@ -611,7 +611,7 @@ function toBeHex(_value, _width) {
  */
 function toBeArray(_value) {
     const value = getUint(_value, "value");
-    if (value === BN_0$9) {
+    if (value === BN_0$a) {
         return new Uint8Array([]);
     }
     let hex = value.toString(16);
@@ -669,7 +669,7 @@ function getAlpha(letter) {
     assertArgument(result != null, `invalid base58 value`, "letter", letter);
     return result;
 }
-const BN_0$8 = BigInt(0);
+const BN_0$9 = BigInt(0);
 const BN_58 = BigInt(58);
 /**
  *  Encode %%value%% as a Base58-encoded string.
@@ -687,7 +687,7 @@ function encodeBase58(_value) {
  *  Decode the Base58-encoded %%value%%.
  */
 function decodeBase58(value) {
-    let result = BN_0$8;
+    let result = BN_0$9;
     for (let i = 0; i < value.length; i++) {
         result *= BN_58;
         result += getAlpha(value[i]);
@@ -718,14 +718,32 @@ function encodeBase64(_data) {
  *
  *  @_section api/utils/events:Events  [about-events]
  */
+/**
+ *  When an [[EventEmitterable]] triggers a [[Listener]], the
+ *  callback always ahas one additional argument passed, which is
+ *  an **EventPayload**.
+ */
 class EventPayload {
+    /**
+     *  The event filter.
+     */
     filter;
+    /**
+     *  The **EventEmitterable**.
+     */
     emitter;
     #listener;
+    /**
+     *  Create a new **EventPayload** for %%emitter%% with
+     *  the %%listener%% and for %%filter%%.
+     */
     constructor(emitter, listener, filter) {
         this.#listener = listener;
         defineProperties(this, { emitter, filter });
     }
+    /**
+     *  Unregister the triggered listener for future events.
+     */
     async removeListener() {
         if (this.#listener == null) {
             return;
@@ -1761,8 +1779,8 @@ function wait(delay) {
  *  @_section: api/utils/fixed-point-math:Fixed-Point Maths  [about-fixed-point-math]
  */
 const BN_N1 = BigInt(-1);
-const BN_0$7 = BigInt(0);
-const BN_1$5 = BigInt(1);
+const BN_0$8 = BigInt(0);
+const BN_1$4 = BigInt(1);
 const BN_5 = BigInt(5);
 const _guard$5 = {};
 // Constant to pull zeros from for multipliers
@@ -1781,11 +1799,11 @@ function getTens(decimals) {
 function checkValue(val, format, safeOp) {
     const width = BigInt(format.width);
     if (format.signed) {
-        const limit = (BN_1$5 << (width - BN_1$5));
+        const limit = (BN_1$4 << (width - BN_1$4));
         assert$1(safeOp == null || (val >= -limit && val < limit), "overflow", "NUMERIC_FAULT", {
             operation: safeOp, fault: "overflow", value: val
         });
-        if (val > BN_0$7) {
+        if (val > BN_0$8) {
             val = fromTwos(mask(val, width), width);
         }
         else {
@@ -1793,11 +1811,11 @@ function checkValue(val, format, safeOp) {
         }
     }
     else {
-        const limit = (BN_1$5 << width);
+        const limit = (BN_1$4 << width);
         assert$1(safeOp == null || (val >= 0 && val < limit), "overflow", "NUMERIC_FAULT", {
             operation: safeOp, fault: "overflow", value: val
         });
-        val = (((val % limit) + limit) % limit) & (limit - BN_1$5);
+        val = (((val % limit) + limit) % limit) & (limit - BN_1$4);
     }
     return val;
 }
@@ -1845,7 +1863,7 @@ function getFormat(value) {
 }
 function toString(val, decimals) {
     let negative = "";
-    if (val < BN_0$7) {
+    if (val < BN_0$8) {
         negative = "-";
         val *= BN_N1;
     }
@@ -2036,13 +2054,13 @@ class FixedNumber {
     mulSignal(other) {
         this.#checkFormat(other);
         const value = this.#val * other.#val;
-        assert$1((value % this.#tens) === BN_0$7, "precision lost during signalling mul", "NUMERIC_FAULT", {
+        assert$1((value % this.#tens) === BN_0$8, "precision lost during signalling mul", "NUMERIC_FAULT", {
             operation: "mulSignal", fault: "underflow", value: this
         });
         return this.#checkValue(value / this.#tens, "mulSignal");
     }
     #div(o, safeOp) {
-        assert$1(o.#val !== BN_0$7, "division by zero", "NUMERIC_FAULT", {
+        assert$1(o.#val !== BN_0$8, "division by zero", "NUMERIC_FAULT", {
             operation: "div", fault: "divide-by-zero", value: this
         });
         this.#checkFormat(o);
@@ -2066,12 +2084,12 @@ class FixedNumber {
      *  (precision loss) occurs.
      */
     divSignal(other) {
-        assert$1(other.#val !== BN_0$7, "division by zero", "NUMERIC_FAULT", {
+        assert$1(other.#val !== BN_0$8, "division by zero", "NUMERIC_FAULT", {
             operation: "div", fault: "divide-by-zero", value: this
         });
         this.#checkFormat(other);
         const value = (this.#val * this.#tens);
-        assert$1((value % other.#val) === BN_0$7, "precision lost during signalling div", "NUMERIC_FAULT", {
+        assert$1((value % other.#val) === BN_0$8, "precision lost during signalling div", "NUMERIC_FAULT", {
             operation: "divSignal", fault: "underflow", value: this
         });
         return this.#checkValue(value / other.#val, "divSignal");
@@ -2130,8 +2148,8 @@ class FixedNumber {
      */
     floor() {
         let val = this.#val;
-        if (this.#val < BN_0$7) {
-            val -= this.#tens - BN_1$5;
+        if (this.#val < BN_0$8) {
+            val -= this.#tens - BN_1$4;
         }
         val = (this.#val / this.#tens) * this.#tens;
         return this.#checkValue(val, "floor");
@@ -2144,8 +2162,8 @@ class FixedNumber {
      */
     ceiling() {
         let val = this.#val;
-        if (this.#val > BN_0$7) {
-            val += this.#tens - BN_1$5;
+        if (this.#val > BN_0$8) {
+            val += this.#tens - BN_1$4;
         }
         val = (this.#val / this.#tens) * this.#tens;
         return this.#checkValue(val, "ceiling");
@@ -2173,11 +2191,11 @@ class FixedNumber {
     /**
      *  Returns true if %%this%% is equal to ``0``.
      */
-    isZero() { return (this.#val === BN_0$7); }
+    isZero() { return (this.#val === BN_0$8); }
     /**
      *  Returns true if %%this%% is less than ``0``.
      */
-    isNegative() { return (this.#val < BN_0$7); }
+    isNegative() { return (this.#val < BN_0$8); }
     /**
      *  Returns the string representation of %%this%%.
      */
@@ -2216,7 +2234,7 @@ class FixedNumber {
         const delta = decimals - format.decimals;
         if (delta > 0) {
             const tens = getTens(delta);
-            assert$1((value % tens) === BN_0$7, "value loses precision for format", "NUMERIC_FAULT", {
+            assert$1((value % tens) === BN_0$8, "value loses precision for format", "NUMERIC_FAULT", {
                 operation: "fromValue", fault: "underflow", value: _value
             });
             value /= tens;
@@ -5853,8 +5871,8 @@ const MessagePrefix = "\x19Ethereum Signed Message:\n";
  */
 
 // Constants
-const BN_0$6 = BigInt(0);
-const BN_1$4 = BigInt(1);
+const BN_0$7 = BigInt(0);
+const BN_1$3 = BigInt(1);
 const BN_2$3 = BigInt(2);
 const BN_27$1 = BigInt(27);
 const BN_28$1 = BigInt(28);
@@ -6004,7 +6022,7 @@ class Signature {
         const bv = getBigInt(v, "v");
         // The v is not an EIP-155 v, so it is the unspecified chain ID
         if ((bv == BN_27$1) || (bv == BN_28$1)) {
-            return BN_0$6;
+            return BN_0$7;
         }
         // Bad value for an EIP-155 v
         assertArgument(bv >= BN_35$1, "invalid EIP-155 v", "v", v);
@@ -6050,15 +6068,15 @@ class Signature {
      */
     static getNormalizedV(v) {
         const bv = getBigInt(v);
-        if (bv === BN_0$6 || bv === BN_27$1) {
+        if (bv === BN_0$7 || bv === BN_27$1) {
             return 27;
         }
-        if (bv === BN_1$4 || bv === BN_28$1) {
+        if (bv === BN_1$3 || bv === BN_28$1) {
             return 28;
         }
         assertArgument(bv >= BN_35$1, "invalid v", "v", v);
         // Otherwise, EIP-155 v means odd is 27 and even is 28
-        return (bv & BN_1$4) ? 27 : 28;
+        return (bv & BN_1$3) ? 27 : 28;
     }
     /**
      *  Creates a new [[Signature]].
@@ -6335,7 +6353,7 @@ function lock() {
     randomBytes.lock();
 }
 
-const BN_0$5 = BigInt(0);
+const BN_0$6 = BigInt(0);
 const BN_36 = BigInt(36);
 function getChecksumAddress(address) {
     //    if (!isHexString(address, 20)) {
@@ -6397,7 +6415,7 @@ const Base36 = (function () {
 })();
 function fromBase36(value) {
     value = value.toLowerCase();
-    let result = BN_0$5;
+    let result = BN_0$6;
     for (let i = 0; i < value.length; i++) {
         result = result * BN_36 + Base36[value[i]];
     }
@@ -7188,7 +7206,7 @@ class FixedBytesCoder extends Coder {
     }
 }
 
-const Empty$1 = new Uint8Array([]);
+const Empty = new Uint8Array([]);
 /**
  *  @_ignore
  */
@@ -7203,7 +7221,7 @@ class NullCoder extends Coder {
         if (value != null) {
             this._throwError("not null", value);
         }
-        return writer.writeBytes(Empty$1);
+        return writer.writeBytes(Empty);
     }
     decode(reader) {
         reader.readBytes(0);
@@ -7211,8 +7229,8 @@ class NullCoder extends Coder {
     }
 }
 
-const BN_0$4 = BigInt(0);
-const BN_1$3 = BigInt(1);
+const BN_0$5 = BigInt(0);
+const BN_1$2 = BigInt(1);
 const BN_MAX_UINT256$1 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 /**
  *  @_ignore
@@ -7234,12 +7252,12 @@ class NumberCoder extends Coder {
         let maxUintValue = mask(BN_MAX_UINT256$1, WordSize * 8);
         if (this.signed) {
             let bounds = mask(maxUintValue, (this.size * 8) - 1);
-            if (value > bounds || value < -(bounds + BN_1$3)) {
+            if (value > bounds || value < -(bounds + BN_1$2)) {
                 this._throwError("value out-of-bounds", _value);
             }
             value = toTwos(value, 8 * WordSize);
         }
-        else if (value < BN_0$4 || value > mask(maxUintValue, this.size * 8)) {
+        else if (value < BN_0$5 || value > mask(maxUintValue, this.size * 8)) {
             this._throwError("value out-of-bounds", _value);
         }
         return writer.writeValue(value);
@@ -7550,7 +7568,7 @@ function read_replacement_table(w, next) {
 }
 
 // created 2023-01-26T08:54:35.886Z
-var r$1 = read_compressed_payload('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');
+var r = read_compressed_payload('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');
 const FENCED = new Map([[8217,"apostrophe"],[8260,"fraction slash"],[12539,"middle dot"]]);
 
 function hex_cp(cp) {
@@ -7594,179 +7612,17 @@ function compare_arrays(a, b) {
 	return c;
 }
 
-// created 2023-01-26T08:54:36.002Z
-var r = read_compressed_payload('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');
+// reverse polyfill
 
-// https://unicode.org/reports/tr15/
-
-function unpack_cc(packed) {
-	return (packed >> 24) & 0xFF;
-}
-function unpack_cp(packed) {
-	return packed & 0xFFFFFF;
+function nf(cps, form) {
+	return explode_cp(str_from_cps(cps).normalize(form));
 }
 
-const SHIFTED_RANK = new Map(read_sorted_arrays(r).flatMap((v, i) => v.map(x => [x, (i+1) << 24]))); // pre-shifted
-const EXCLUSIONS = new Set(read_sorted(r));
-const DECOMP = new Map();
-const RECOMP = new Map();
-for (let [cp, cps] of read_mapped(r)) {
-	if (!EXCLUSIONS.has(cp) && cps.length == 2) {
-		let [a, b] = cps;
-		let bucket = RECOMP.get(a);
-		if (!bucket) {
-			bucket = new Map();
-			RECOMP.set(a, bucket);
-		}
-		bucket.set(b, cp);
-	}
-	DECOMP.set(cp, cps.reverse()); // stored reversed
-}
-
-// algorithmic hangul
-// https://www.unicode.org/versions/Unicode15.0.0/ch03.pdf (page 144)
-const S0 = 0xAC00;
-const L0 = 0x1100;
-const V0 = 0x1161;
-const T0 = 0x11A7;
-const L_COUNT = 19;
-const V_COUNT = 21;
-const T_COUNT = 28;
-const N_COUNT = V_COUNT * T_COUNT;
-const S_COUNT = L_COUNT * N_COUNT;
-const S1 = S0 + S_COUNT;
-const L1 = L0 + L_COUNT;
-const V1 = V0 + V_COUNT;
-const T1$1 = T0 + T_COUNT;
-
-function is_hangul(cp) {
-	return cp >= S0 && cp < S1;
-}
-
-function compose_pair(a, b) {
-	if (a >= L0 && a < L1 && b >= V0 && b < V1) {
-		return S0 + (a - L0) * N_COUNT + (b - V0) * T_COUNT;
-	} else if (is_hangul(a) && b > T0 && b < T1$1 && (a - S0) % T_COUNT == 0) {
-		return a + (b - T0);
-	} else {
-		let recomp = RECOMP.get(a);
-		if (recomp) {
-			recomp = recomp.get(b);
-			if (recomp) {
-				return recomp;
-			}
-		}
-		return -1;
-	}
-}
-
-function decomposed(cps) {
-	let ret = [];
-	let buf = [];
-	let check_order = false;
-	function add(cp) {
-		let cc = SHIFTED_RANK.get(cp);
-		if (cc) {
-			check_order = true;
-			cp |= cc;
-		}
-		ret.push(cp);
-	}
-	for (let cp of cps) {
-		while (true) {
-			if (cp < 0x80) {
-				ret.push(cp);
-			} else if (is_hangul(cp)) {
-				let s_index = cp - S0;
-				let l_index = s_index / N_COUNT | 0;
-				let v_index = (s_index % N_COUNT) / T_COUNT | 0;
-				let t_index = s_index % T_COUNT;
-				add(L0 + l_index);
-				add(V0 + v_index);
-				if (t_index > 0) add(T0 + t_index);
-			} else {
-				let mapped = DECOMP.get(cp);
-				if (mapped) {
-					buf.push(...mapped);
-				} else {
-					add(cp);
-				}
-			}
-			if (!buf.length) break;
-			cp = buf.pop();
-		}
-	}
-	if (check_order && ret.length > 1) {
-		let prev_cc = unpack_cc(ret[0]);
-		for (let i = 1; i < ret.length; i++) {
-			let cc = unpack_cc(ret[i]);
-			if (cc == 0 || prev_cc <= cc) {
-				prev_cc = cc;
-				continue;
-			}
-			let j = i-1;
-			while (true) {
-				let tmp = ret[j+1];
-				ret[j+1] = ret[j];
-				ret[j] = tmp;
-				if (!j) break;
-				prev_cc = unpack_cc(ret[--j]);
-				if (prev_cc <= cc) break;
-			}
-			prev_cc = unpack_cc(ret[i]);
-		}
-	}
-	return ret;
-}
-
-function composed_from_decomposed(v) {
-	let ret = [];
-	let stack = [];
-	let prev_cp = -1;
-	let prev_cc = 0;
-	for (let packed of v) {
-		let cc = unpack_cc(packed);
-		let cp = unpack_cp(packed);
-		if (prev_cp == -1) {
-			if (cc == 0) {
-				prev_cp = cp;
-			} else {
-				ret.push(cp);
-			}
-		} else if (prev_cc > 0 && prev_cc >= cc) {
-			if (cc == 0) {
-				ret.push(prev_cp, ...stack);
-				stack.length = 0;
-				prev_cp = cp;
-			} else {
-				stack.push(cp);
-			}
-			prev_cc = cc;
-		} else {
-			let composed = compose_pair(prev_cp, cp);
-			if (composed >= 0) {
-				prev_cp = composed;
-			} else if (prev_cc == 0 && cc == 0) {
-				ret.push(prev_cp);
-				prev_cp = cp;
-			} else {
-				stack.push(cp);
-				prev_cc = cc;
-			}
-		}
-	}
-	if (prev_cp >= 0) {
-		ret.push(prev_cp, ...stack);	
-	}
-	return ret;
-}
-
-// note: cps can be iterable
-function nfd(cps) {
-	return decomposed(cps).map(unpack_cp);
-}
 function nfc(cps) {
-	return composed_from_decomposed(decomposed(cps));
+	return nf(cps, 'NFC');
+}
+function nfd(cps) {
+	return nf(cps, 'NFD');
 }
 
 //const t0 = performance.now();
@@ -7778,9 +7634,9 @@ const UNIQUE_PH = 1;
 const HYPHEN = 0x2D;
 
 function read_set() {
-	return new Set(read_sorted(r$1));
+	return new Set(read_sorted(r));
 }
-const MAPPED = new Map(read_mapped(r$1)); 
+const MAPPED = new Map(read_mapped(r)); 
 const IGNORED = read_set(); // ignored characters are not valid, so just read raw codepoints
 /*
 // direct include from payload is smaller that the decompression code
@@ -7792,16 +7648,16 @@ const FENCED = new Map(read_array_while(() => {
 const CM = read_set();
 const ESCAPE = read_set(); // characters that should not be printed
 const NFC_CHECK = read_set();
-const CHUNKS = read_sorted_arrays(r$1);
+const CHUNKS = read_sorted_arrays(r);
 function read_chunked() {
 	// deduplicated sets + uniques
-	return new Set([read_sorted(r$1).map(i => CHUNKS[i]), read_sorted(r$1)].flat(2));
+	return new Set([read_sorted(r).map(i => CHUNKS[i]), read_sorted(r)].flat(2));
 }
-const UNRESTRICTED = r$1();
+const UNRESTRICTED = r();
 const GROUPS = read_array_while(i => {
 	// minifier property mangling seems unsafe
 	// so these are manually renamed to single chars
-	let N = read_array_while(r$1).map(x => x+0x60);
+	let N = read_array_while(r).map(x => x+0x60);
 	if (N.length) {
 		let R = i >= UNRESTRICTED; // first arent restricted
 		N[0] -= 32; // capitalize
@@ -7810,7 +7666,7 @@ const GROUPS = read_array_while(i => {
 		let P = read_chunked(); // primary
 		let Q = read_chunked(); // secondary
 		let V = [...P, ...Q].sort((a, b) => a-b); // derive: sorted valid
-		let M = r$1()-1; // combining mark
+		let M = r()-1; // combining mark
 		// code currently isn't needed
 		/*if (M < 0) { // whitelisted
 			M = new Map(read_array_while(() => {
@@ -7828,7 +7684,7 @@ const WHOLE_VALID = read_set();
 const WHOLE_MAP = new Map();
 // decode compressed wholes
 [...WHOLE_VALID, ...read_set()].sort((a, b) => a-b).map((cp, i, v) => {
-	let d = r$1(); 
+	let d = r(); 
 	let w = v[i] = d ? v[i-d] : {V: [], M: new Map()};
 	w.V.push(cp); // add to member set
 	if (!WHOLE_VALID.has(cp)) {
@@ -7874,15 +7730,15 @@ for (let cp of union) {
 const VALID = new Set([...union, ...nfd(union)]); // possibly valid
 
 // decode emoji
-const EMOJI_SORTED = read_sorted(r$1);
+const EMOJI_SORTED = read_sorted(r);
 //const EMOJI_SOLO = new Set(read_sorted(r).map(i => EMOJI_SORTED[i])); // not needed
 const EMOJI_ROOT = read_emoji_trie([]);
 function read_emoji_trie(cps) {
 	let B = read_array_while(() => {
-		let keys = read_sorted(r$1).map(i => EMOJI_SORTED[i]);
+		let keys = read_sorted(r).map(i => EMOJI_SORTED[i]);
 		if (keys.length) return read_emoji_trie(keys);
 	}).sort((a, b) => b.Q.size - a.Q.size); // sort by likelihood
-	let temp = r$1();
+	let temp = r();
 	let V = temp % 3; // valid (0 = false, 1 = true, 2 = weird)
 	temp = (temp / 3)|0;
 	let F = temp & 1; // allow FE0F
@@ -8470,7 +8326,7 @@ function checkComponent(comp) {
     return comp;
 }
 function ensNameSplit(name) {
-    const bytes = toUtf8Bytes(ens_normalize(name));
+    const bytes = toUtf8Bytes(ensNormalize(name));
     const comps = [];
     if (name.length === 0) {
         return comps;
@@ -8489,9 +8345,20 @@ function ensNameSplit(name) {
     comps.push(checkComponent(bytes.slice(last)));
     return comps;
 }
+/**
+ *  Returns the ENS %%name%% normalized.
+ */
 function ensNormalize(name) {
-    return ensNameSplit(name).map((comp) => toUtf8String(comp)).join(".");
+    try {
+        return ens_normalize(name);
+    }
+    catch (error) {
+        assertArgument(false, `invalid ENS name (${error.message})`, "name", name);
+    }
 }
+/**
+ *  Returns ``true`` if %%name%% is a valid ENS name.
+ */
 function isValidName(name) {
     try {
         return (ensNameSplit(name).length !== 0);
@@ -8499,6 +8366,9 @@ function isValidName(name) {
     catch (error) { }
     return false;
 }
+/**
+ *  Returns the [[link-namehash]] for %%name%%.
+ */
 function namehash(name) {
     assertArgument(typeof (name) === "string", "invalid ENS name; not a string", "name", name);
     let result = Zeros;
@@ -8508,6 +8378,12 @@ function namehash(name) {
     }
     return hexlify(result);
 }
+/**
+ *  Returns the DNS encoded %%name%%.
+ *
+ *  This is used for various parts of ENS name resolution, such
+ *  as the wildcard resolution.
+ */
 function dnsEncode(name) {
     return hexlify(concat(ensNameSplit(name).map((comp) => {
         // DNS does not allow components over 63 bytes in length
@@ -8556,6 +8432,11 @@ function accessListify(value) {
     return result;
 }
 
+/**
+ *  Returns the address for the %%key%%.
+ *
+ *  The key may be any standard form of public key or a private key.
+ */
 function computeAddress(key) {
     let pubkey;
     if (typeof (key) === "string") {
@@ -8566,11 +8447,15 @@ function computeAddress(key) {
     }
     return getAddress(keccak256("0x" + pubkey.substring(4)).substring(26));
 }
+/**
+ *  Returns the recovered address for the private key that was
+ *  used to sign %%digest%% that resulted in %%signature%%.
+ */
 function recoverAddress(digest, signature) {
     return computeAddress(SigningKey.recoverPublicKey(digest, signature));
 }
 
-const BN_0$3 = BigInt(0);
+const BN_0$4 = BigInt(0);
 const BN_2$2 = BigInt(2);
 const BN_27 = BigInt(27);
 const BN_28 = BigInt(28);
@@ -8598,7 +8483,7 @@ function handleNumber(_value, param) {
 }
 function handleUint(_value, param) {
     if (_value === "0x") {
-        return BN_0$3;
+        return BN_0$4;
     }
     const value = getBigInt(_value, param);
     assertArgument(value <= BN_MAX_UINT, "value exceeds uint size", param, value);
@@ -8624,7 +8509,7 @@ function _parseLegacy(data) {
         to: handleAddress(fields[3]),
         value: handleUint(fields[4], "value"),
         data: hexlify(fields[5]),
-        chainId: BN_0$3
+        chainId: BN_0$4
     };
     // Legacy unsigned transaction
     if (fields.length === 6) {
@@ -8633,19 +8518,19 @@ function _parseLegacy(data) {
     const v = handleUint(fields[6], "v");
     const r = handleUint(fields[7], "r");
     const s = handleUint(fields[8], "s");
-    if (r === BN_0$3 && s === BN_0$3) {
+    if (r === BN_0$4 && s === BN_0$4) {
         // EIP-155 unsigned transaction
         tx.chainId = v;
     }
     else {
         // Compute the EIP-155 chain ID (or 0 for legacy)
         let chainId = (v - BN_35) / BN_2$2;
-        if (chainId < BN_0$3) {
-            chainId = BN_0$3;
+        if (chainId < BN_0$4) {
+            chainId = BN_0$4;
         }
         tx.chainId = chainId;
         // Signed Legacy Transaction
-        assertArgument(chainId !== BN_0$3 || (v === BN_27 || v === BN_28), "non-canonical legacy v", "v", fields[6]);
+        assertArgument(chainId !== BN_0$4 || (v === BN_27 || v === BN_28), "non-canonical legacy v", "v", fields[6]);
         tx.signature = Signature.from({
             r: zeroPadValue(fields[7], 32),
             s: zeroPadValue(fields[8], 32),
@@ -8664,7 +8549,7 @@ function _serializeLegacy(tx, sig) {
         formatNumber(tx.value || 0, "value"),
         (tx.data || "0x"),
     ];
-    let chainId = BN_0$3;
+    let chainId = BN_0$4;
     if (tx.chainId != null) {
         // A chainId was provided; if non-zero we'll use EIP-155
         chainId = getBigInt(tx.chainId, "tx.chainId");
@@ -8682,7 +8567,7 @@ function _serializeLegacy(tx, sig) {
     // Requesting an unsigned transaction
     if (!sig) {
         // We have an EIP-155 transaction (chainId was specified and non-zero)
-        if (chainId !== BN_0$3) {
+        if (chainId !== BN_0$4) {
             fields.push(toBeArray(chainId));
             fields.push("0x");
             fields.push("0x");
@@ -8691,7 +8576,7 @@ function _serializeLegacy(tx, sig) {
     }
     // We pushed a chainId and null r, s on for hashing only; remove those
     let v = BigInt(27 + sig.yParity);
-    if (chainId !== BN_0$3) {
+    if (chainId !== BN_0$4) {
         v = Signature.getChainIdV(chainId, sig.v);
     }
     else if (BigInt(sig.v) !== v) {
@@ -8897,7 +8782,7 @@ class Transaction {
     get gasPrice() {
         const value = this.#gasPrice;
         if (value == null && (this.type === 0 || this.type === 1)) {
-            return BN_0$3;
+            return BN_0$4;
         }
         return value;
     }
@@ -8912,7 +8797,7 @@ class Transaction {
         const value = this.#maxPriorityFeePerGas;
         if (value == null) {
             if (this.type === 2) {
-                return BN_0$3;
+                return BN_0$4;
             }
             return null;
         }
@@ -8929,7 +8814,7 @@ class Transaction {
         const value = this.#maxFeePerGas;
         if (value == null) {
             if (this.type === 2) {
-                return BN_0$3;
+                return BN_0$4;
             }
             return null;
         }
@@ -9419,8 +9304,8 @@ function solidityPackedSha256(types, values) {
 const padding = new Uint8Array(32);
 padding.fill(0);
 const BN__1 = BigInt(-1);
-const BN_0$2 = BigInt(0);
-const BN_1$2 = BigInt(1);
+const BN_0$3 = BigInt(0);
+const BN_1$1 = BigInt(1);
 const BN_MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 ;
 ;
@@ -9432,8 +9317,8 @@ function hexPadRight(value) {
     }
     return hexlify(bytes);
 }
-const hexTrue = toBeHex(BN_1$2, 32);
-const hexFalse = toBeHex(BN_0$2, 32);
+const hexTrue = toBeHex(BN_1$1, 32);
+const hexFalse = toBeHex(BN_0$3, 32);
 const domainFieldTypes = {
     name: "string",
     version: "string",
@@ -9478,7 +9363,7 @@ function getBaseEncoder(type) {
             const width = parseInt(match[2] || "256");
             assertArgument(width % 8 === 0 && width !== 0 && width <= 256 && (match[2] == null || match[2] === String(width)), "invalid numeric width", "type", type);
             const boundsUpper = mask(BN_MAX_UINT256, signed ? (width - 1) : width);
-            const boundsLower = signed ? ((boundsUpper + BN_1$2) * BN__1) : BN_0$2;
+            const boundsLower = signed ? ((boundsUpper + BN_1$1) * BN__1) : BN_0$3;
             return function (_value) {
                 const value = getBigInt(_value, "value");
                 assertArgument(value >= boundsLower && value <= boundsUpper, `value out-of-bounds for ${type}`, "value", value);
@@ -9819,7 +9704,7 @@ function setify(items) {
 // Visibility Keywords
 const _kwVisib = "constant external internal payable private public pure view";
 const KwVisib = setify(_kwVisib.split(" "));
-const _kwTypes = "constructor error event function struct";
+const _kwTypes = "constructor error event fallback function receive struct";
 const KwTypes = setify(_kwTypes.split(" "));
 const _kwModifiers = "calldata memory storage payable indexed";
 const KwModifiers = setify(_kwModifiers.split(" "));
@@ -10134,6 +10019,7 @@ const ParamTypeInternal = "_ParamTypeInternal";
 const ErrorFragmentInternal = "_ErrorInternal";
 const EventFragmentInternal = "_EventInternal";
 const ConstructorFragmentInternal = "_ConstructorInternal";
+const FallbackFragmentInternal = "_FallbackInternal";
 const FunctionFragmentInternal = "_FunctionInternal";
 const StructFragmentInternal = "_StructInternal";
 /**
@@ -10512,34 +10398,45 @@ class Fragment {
      */
     static from(obj) {
         if (typeof (obj) === "string") {
+            // Try parsing JSON...
             try {
                 Fragment.from(JSON.parse(obj));
             }
             catch (e) { }
+            // ...otherwise, use the human-readable lexer
             return Fragment.from(lex(obj));
         }
         if (obj instanceof TokenString) {
-            const type = obj.popKeyword(KwTypes);
+            // Human-readable ABI (already lexed)
+            const type = obj.peekKeyword(KwTypes);
             switch (type) {
                 case "constructor": return ConstructorFragment.from(obj);
                 case "error": return ErrorFragment.from(obj);
                 case "event": return EventFragment.from(obj);
+                case "fallback":
+                case "receive":
+                    return FallbackFragment.from(obj);
                 case "function": return FunctionFragment.from(obj);
                 case "struct": return StructFragment.from(obj);
             }
-            throw new Error(`unsupported type: ${type}`);
         }
-        if (typeof (obj) === "object") {
+        else if (typeof (obj) === "object") {
+            // JSON ABI
             switch (obj.type) {
                 case "constructor": return ConstructorFragment.from(obj);
                 case "error": return ErrorFragment.from(obj);
                 case "event": return EventFragment.from(obj);
+                case "fallback":
+                case "receive":
+                    return FallbackFragment.from(obj);
                 case "function": return FunctionFragment.from(obj);
                 case "struct": return StructFragment.from(obj);
             }
-            throw new Error(`not implemented yet: ${obj.type}`);
+            assert$1(false, `unsupported type: ${obj.type}`, "UNSUPPORTED_OPERATION", {
+                operation: "Fragment.from"
+            });
         }
-        throw new Error(`unsupported type: ${obj}`);
+        assertArgument(false, "unsupported frgament object", "obj", obj);
     }
     /**
      *  Returns true if %%value%% is a [[ConstructorFragment]].
@@ -10689,6 +10586,11 @@ class EventFragment extends NamedFragment {
         }
         return result.join(" ");
     }
+    static getTopicHash(name, params) {
+        params = (params || []).map((p) => ParamType.from(p));
+        const fragment = new EventFragment(_guard$2, name, params, false);
+        return fragment.topicHash;
+    }
     static from(obj) {
         if (EventFragment.isFragment(obj)) {
             return obj;
@@ -10765,6 +10667,79 @@ class ConstructorFragment extends Fragment {
 /**
  *  A Fragment which represents a method.
  */
+class FallbackFragment extends Fragment {
+    /**
+     *  If the function can be sent value during invocation.
+     */
+    payable;
+    constructor(guard, inputs, payable) {
+        super(guard, "fallback", inputs);
+        Object.defineProperty(this, internal$1, { value: FallbackFragmentInternal });
+        defineProperties(this, { payable });
+    }
+    format(format) {
+        const type = ((this.inputs.length === 0) ? "receive" : "fallback");
+        if (format === "json") {
+            const stateMutability = (this.payable ? "payable" : "nonpayable");
+            return JSON.stringify({ type, stateMutability });
+        }
+        return `${type}()${this.payable ? " payable" : ""}`;
+    }
+    static from(obj) {
+        if (FallbackFragment.isFragment(obj)) {
+            return obj;
+        }
+        if (typeof (obj) === "string") {
+            return FallbackFragment.from(lex(obj));
+        }
+        else if (obj instanceof TokenString) {
+            const errorObj = obj.toString();
+            const topIsValid = obj.peekKeyword(setify(["fallback", "receive"]));
+            assertArgument(topIsValid, "type must be fallback or receive", "obj", errorObj);
+            const type = obj.popKeyword(setify(["fallback", "receive"]));
+            // receive()
+            if (type === "receive") {
+                const inputs = consumeParams(obj);
+                assertArgument(inputs.length === 0, `receive cannot have arguments`, "obj.inputs", inputs);
+                consumeKeywords(obj, setify(["payable"]));
+                consumeEoi(obj);
+                return new FallbackFragment(_guard$2, [], true);
+            }
+            // fallback() [payable]
+            // fallback(bytes) [payable] returns (bytes)
+            let inputs = consumeParams(obj);
+            if (inputs.length) {
+                assertArgument(inputs.length === 1 && inputs[0].type === "bytes", "invalid fallback inputs", "obj.inputs", inputs.map((i) => i.format("minimal")).join(", "));
+            }
+            else {
+                inputs = [ParamType.from("bytes")];
+            }
+            const mutability = consumeMutability(obj);
+            assertArgument(mutability === "nonpayable" || mutability === "payable", "fallback cannot be constants", "obj.stateMutability", mutability);
+            if (consumeKeywords(obj, setify(["returns"])).has("returns")) {
+                const outputs = consumeParams(obj);
+                assertArgument(outputs.length === 1 && outputs[0].type === "bytes", "invalid fallback outputs", "obj.outputs", outputs.map((i) => i.format("minimal")).join(", "));
+            }
+            consumeEoi(obj);
+            return new FallbackFragment(_guard$2, inputs, mutability === "payable");
+        }
+        if (obj.type === "receive") {
+            return new FallbackFragment(_guard$2, [], true);
+        }
+        if (obj.type === "fallback") {
+            const inputs = [ParamType.from("bytes")];
+            const payable = (obj.stateMutability === "payable");
+            return new FallbackFragment(_guard$2, inputs, payable);
+        }
+        assertArgument(false, "invalid fallback description", "obj", obj);
+    }
+    static isFragment(value) {
+        return (value && value[internal$1] === FallbackFragmentInternal);
+    }
+}
+/**
+ *  A Fragment which represents a method.
+ */
 class FunctionFragment extends NamedFragment {
     /**
      *  If the function is constant (e.g. ``pure`` or ``view`` functions).
@@ -10780,7 +10755,7 @@ class FunctionFragment extends NamedFragment {
      */
     stateMutability;
     /**
-     *  If the function can be send a value during invocation.
+     *  If the function can be sent value during invocation.
      */
     payable;
     /**
@@ -10838,6 +10813,11 @@ class FunctionFragment extends NamedFragment {
             }
         }
         return result.join(" ");
+    }
+    static getSelector(name, params) {
+        params = (params || []).map((p) => ParamType.from(p));
+        const fragment = new FunctionFragment(_guard$2, name, "view", params, [], null);
+        return fragment.selector;
     }
     static from(obj) {
         if (FunctionFragment.isFragment(obj)) {
@@ -11227,6 +11207,14 @@ class Interface {
      *  The Contract constructor.
      */
     deploy;
+    /**
+     *  The Fallback method, if any.
+     */
+    fallback;
+    /**
+     *  If receiving ether is supported.
+     */
+    receive;
     #errors;
     #events;
     #functions;
@@ -11259,9 +11247,11 @@ class Interface {
         defineProperties(this, {
             fragments: Object.freeze(frags)
         });
+        let fallback = null;
+        let receive = false;
         this.#abiCoder = this.getAbiCoder();
         // Add all fragments by their signature
-        this.fragments.forEach((fragment) => {
+        this.fragments.forEach((fragment, index) => {
             let bucket;
             switch (fragment.type) {
                 case "constructor":
@@ -11271,6 +11261,16 @@ class Interface {
                     }
                     //checkNames(fragment, "input", fragment.inputs);
                     defineProperties(this, { deploy: fragment });
+                    return;
+                case "fallback":
+                    if (fragment.inputs.length === 0) {
+                        receive = true;
+                    }
+                    else {
+                        assertArgument(!fallback || fragment.payable !== fallback.payable, "conflicting fallback fragments", `fragments[${index}]`, fragment);
+                        fallback = fragment;
+                        receive = fallback.payable;
+                    }
                     return;
                 case "function":
                     //checkNames(fragment, "input", fragment.inputs);
@@ -11300,6 +11300,7 @@ class Interface {
                 deploy: ConstructorFragment.from("constructor()")
             });
         }
+        defineProperties(this, { fallback, receive });
     }
     /**
      *  Returns the entire Human-Readable ABI, as an array of
@@ -11337,7 +11338,7 @@ class Interface {
                     return fragment;
                 }
             }
-            assertArgument(false, "no matching function", "selector", key);
+            return null;
         }
         // It is a bare name, look up the function (will return null if ambiguous)
         if (key.indexOf("(") === -1) {
@@ -11395,10 +11396,12 @@ class Interface {
                     matching.splice(0, 1);
                 }
             }
-            assertArgument(matching.length !== 0, "no matching function", "name", key);
+            if (matching.length === 0) {
+                return null;
+            }
             if (matching.length > 1 && forceUnique) {
                 const matchStr = matching.map((m) => JSON.stringify(m.format())).join(", ");
-                assertArgument(false, `multiple matching functions (i.e. ${matchStr})`, "name", key);
+                assertArgument(false, `ambiguous function description (i.e. matches ${matchStr})`, "key", key);
             }
             return matching[0];
         }
@@ -11407,14 +11410,16 @@ class Interface {
         if (result) {
             return result;
         }
-        assertArgument(false, "no matching function", "signature", key);
+        return null;
     }
     /**
      *  Get the function name for %%key%%, which may be a function selector,
      *  function name or function signature that belongs to the ABI.
      */
     getFunctionName(key) {
-        return (this.#getFunction(key, null, false)).name;
+        const fragment = this.#getFunction(key, null, false);
+        assertArgument(fragment, "no matching function", "key", key);
+        return fragment.name;
     }
     /**
      *  Get the [[FunctionFragment]] for %%key%%, which may be a function
@@ -11450,7 +11455,7 @@ class Interface {
                     return fragment;
                 }
             }
-            assertArgument(false, "no matching event", "eventTopic", key);
+            return null;
         }
         // It is a bare name, look up the function (will return null if ambiguous)
         if (key.indexOf("(") === -1) {
@@ -11483,10 +11488,12 @@ class Interface {
                     }
                 }
             }
-            assertArgument(matching.length > 0, "no matching event", "name", key);
+            if (matching.length === 0) {
+                return null;
+            }
             if (matching.length > 1 && forceUnique) {
-                // @TODO: refine by Typed
-                assertArgument(false, "multiple matching events", "name", key);
+                const matchStr = matching.map((m) => JSON.stringify(m.format())).join(", ");
+                assertArgument(false, `ambiguous event description (i.e. matches ${matchStr})`, "key", key);
             }
             return matching[0];
         }
@@ -11495,14 +11502,16 @@ class Interface {
         if (result) {
             return result;
         }
-        assertArgument(false, "no matching event", "signature", key);
+        return null;
     }
     /**
      *  Get the event name for %%key%%, which may be a topic hash,
      *  event name or event signature that belongs to the ABI.
      */
     getEventName(key) {
-        return (this.#getEvent(key, null, false)).name;
+        const fragment = this.#getEvent(key, null, false);
+        assertArgument(fragment, "no matching event", "key", key);
+        return fragment.name;
     }
     /**
      *  Get the [[EventFragment]] for %%key%%, which may be a topic hash,
@@ -11549,7 +11558,7 @@ class Interface {
                     return fragment;
                 }
             }
-            assertArgument(false, "no matching error", "selector", key);
+            return null;
         }
         // It is a bare name, look up the function (will return null if ambiguous)
         if (key.indexOf("(") === -1) {
@@ -11566,11 +11575,11 @@ class Interface {
                 if (key === "Panic") {
                     return ErrorFragment.from("error Panic(uint256)");
                 }
-                assertArgument(false, "no matching error", "name", key);
+                return null;
             }
             else if (matching.length > 1) {
-                // @TODO: refine by Typed
-                assertArgument(false, "multiple matching errors", "name", key);
+                const matchStr = matching.map((m) => JSON.stringify(m.format())).join(", ");
+                assertArgument(false, `ambiguous error description (i.e. ${matchStr})`, "name", key);
             }
             return matching[0];
         }
@@ -11586,7 +11595,7 @@ class Interface {
         if (result) {
             return result;
         }
-        assertArgument(false, "no matching error", "signature", key);
+        return null;
     }
     /**
      *  Iterate over all errors, calling %%callback%%, sorted by their name.
@@ -11651,7 +11660,9 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
      */
     decodeErrorResult(fragment, data) {
         if (typeof (fragment) === "string") {
-            fragment = this.getError(fragment);
+            const f = this.getError(fragment);
+            assertArgument(f, "unknown error", "fragment", fragment);
+            fragment = f;
         }
         assertArgument(dataSlice(data, 0, 4) === fragment.selector, `data signature does not match error ${fragment.name}.`, "data", data);
         return this._decodeParams(fragment.inputs, dataSlice(data, 4));
@@ -11659,13 +11670,17 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
     /**
      *  Encodes the transaction revert data for a call result that
      *  reverted from the the Contract with the sepcified %%error%%
-     *  (see [[getError]] for valid values for %%key%%) with the %%values%%.
+     *  (see [[getError]] for valid values for %%fragment%%) with the %%values%%.
      *
      *  This is generally not used by most developers, unless trying to mock
      *  a result from a Contract.
      */
-    encodeErrorResult(key, values) {
-        const fragment = (typeof (key) === "string") ? this.getError(key) : key;
+    encodeErrorResult(fragment, values) {
+        if (typeof (fragment) === "string") {
+            const f = this.getError(fragment);
+            assertArgument(f, "unknown error", "fragment", fragment);
+            fragment = f;
+        }
         return concat([
             fragment.selector,
             this._encodeParams(fragment.inputs, values || [])
@@ -11674,23 +11689,31 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
     /**
      *  Decodes the %%data%% from a transaction ``tx.data`` for
      *  the function specified (see [[getFunction]] for valid values
-     *  for %%key%%).
+     *  for %%fragment%%).
      *
      *  Most developers should prefer the [[parseTransaction]] method
      *  instead, which will automatically detect the fragment.
      */
-    decodeFunctionData(key, data) {
-        const fragment = (typeof (key) === "string") ? this.getFunction(key) : key;
+    decodeFunctionData(fragment, data) {
+        if (typeof (fragment) === "string") {
+            const f = this.getFunction(fragment);
+            assertArgument(f, "unknown function", "fragment", fragment);
+            fragment = f;
+        }
         assertArgument(dataSlice(data, 0, 4) === fragment.selector, `data signature does not match function ${fragment.name}.`, "data", data);
         return this._decodeParams(fragment.inputs, dataSlice(data, 4));
     }
     /**
      *  Encodes the ``tx.data`` for a transaction that calls the function
-     *  specified (see [[getFunction]] for valid values for %%key%%) with
+     *  specified (see [[getFunction]] for valid values for %%fragment%%) with
      *  the %%values%%.
      */
-    encodeFunctionData(key, values) {
-        const fragment = (typeof (key) === "string") ? this.getFunction(key) : key;
+    encodeFunctionData(fragment, values) {
+        if (typeof (fragment) === "string") {
+            const f = this.getFunction(fragment);
+            assertArgument(f, "unknown function", "fragment", fragment);
+            fragment = f;
+        }
         return concat([
             fragment.selector,
             this._encodeParams(fragment.inputs, values || [])
@@ -11707,7 +11730,9 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
      */
     decodeFunctionResult(fragment, data) {
         if (typeof (fragment) === "string") {
-            fragment = this.getFunction(fragment);
+            const f = this.getFunction(fragment);
+            assertArgument(f, "unknown function", "fragment", fragment);
+            fragment = f;
         }
         let message = "invalid length for result data";
         const bytes = getBytesCopy(data);
@@ -11732,8 +11757,8 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
         if (!error.message.match(/could not decode/)) {
             const selector = hexlify(data.slice(0, 4));
             error.message = "execution reverted (unknown custom error)";
-            try {
-                const ef = this.getError(selector);
+            const ef = this.getError(selector);
+            if (ef) {
                 try {
                     error.revert = {
                         name: ef.name,
@@ -11746,9 +11771,6 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
                 catch (e) {
                     error.message = `execution reverted (coult not decode custom error)`;
                 }
-            }
-            catch (error) {
-                console.log(error); // @TODO: remove
             }
         }
         // Add the invocation, if available
@@ -11765,13 +11787,17 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
     /**
      *  Encodes the result data (e.g. from an ``eth_call``) for the
      *  specified function (see [[getFunction]] for valid values
-     *  for %%key%%) with %%values%%.
+     *  for %%fragment%%) with %%values%%.
      *
      *  This is generally not used by most developers, unless trying to mock
      *  a result from a Contract.
      */
-    encodeFunctionResult(key, values) {
-        const fragment = (typeof (key) === "string") ? this.getFunction(key) : key;
+    encodeFunctionResult(fragment, values) {
+        if (typeof (fragment) === "string") {
+            const f = this.getFunction(fragment);
+            assertArgument(f, "unknown function", "fragment", fragment);
+            fragment = f;
+        }
         return hexlify(this.#abiCoder.encode(fragment.outputs, values || []));
     }
     /*
@@ -11805,14 +11831,16 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
         }
     */
     // Create the filter for the event with search criteria (e.g. for eth_filterLog)
-    encodeFilterTopics(eventFragment, values) {
-        if (typeof (eventFragment) === "string") {
-            eventFragment = this.getEvent(eventFragment);
+    encodeFilterTopics(fragment, values) {
+        if (typeof (fragment) === "string") {
+            const f = this.getEvent(fragment);
+            assertArgument(f, "unknown event", "eventFragment", fragment);
+            fragment = f;
         }
-        assert$1(values.length <= eventFragment.inputs.length, `too many arguments for ${eventFragment.format()}`, "UNEXPECTED_ARGUMENT", { count: values.length, expectedCount: eventFragment.inputs.length });
+        assert$1(values.length <= fragment.inputs.length, `too many arguments for ${fragment.format()}`, "UNEXPECTED_ARGUMENT", { count: values.length, expectedCount: fragment.inputs.length });
         const topics = [];
-        if (!eventFragment.anonymous) {
-            topics.push(eventFragment.topicHash);
+        if (!fragment.anonymous) {
+            topics.push(fragment.topicHash);
         }
         // @TODO: Use the coders for this; to properly support tuples, etc.
         const encodeTopic = (param, value) => {
@@ -11836,7 +11864,7 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
             //@TOOD should probably be return toHex(value, 32)
         };
         values.forEach((value, index) => {
-            const param = eventFragment.inputs[index];
+            const param = fragment.inputs[index];
             if (!param.indexed) {
                 assertArgument(value == null, "cannot filter non-indexed parameters; must be null", ("contract." + param.name), value);
                 return;
@@ -11860,18 +11888,20 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
         }
         return topics;
     }
-    encodeEventLog(eventFragment, values) {
-        if (typeof (eventFragment) === "string") {
-            eventFragment = this.getEvent(eventFragment);
+    encodeEventLog(fragment, values) {
+        if (typeof (fragment) === "string") {
+            const f = this.getEvent(fragment);
+            assertArgument(f, "unknown event", "eventFragment", fragment);
+            fragment = f;
         }
         const topics = [];
         const dataTypes = [];
         const dataValues = [];
-        if (!eventFragment.anonymous) {
-            topics.push(eventFragment.topicHash);
+        if (!fragment.anonymous) {
+            topics.push(fragment.topicHash);
         }
-        assertArgument(values.length === eventFragment.inputs.length, "event arguments/values mismatch", "values", values);
-        eventFragment.inputs.forEach((param, index) => {
+        assertArgument(values.length === fragment.inputs.length, "event arguments/values mismatch", "values", values);
+        fragment.inputs.forEach((param, index) => {
             const value = values[index];
             if (param.indexed) {
                 if (param.type === "string") {
@@ -11899,19 +11929,21 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
         };
     }
     // Decode a filter for the event and the search criteria
-    decodeEventLog(eventFragment, data, topics) {
-        if (typeof (eventFragment) === "string") {
-            eventFragment = this.getEvent(eventFragment);
+    decodeEventLog(fragment, data, topics) {
+        if (typeof (fragment) === "string") {
+            const f = this.getEvent(fragment);
+            assertArgument(f, "unknown event", "eventFragment", fragment);
+            fragment = f;
         }
-        if (topics != null && !eventFragment.anonymous) {
-            const eventTopic = eventFragment.topicHash;
+        if (topics != null && !fragment.anonymous) {
+            const eventTopic = fragment.topicHash;
             assertArgument(isHexString(topics[0], 32) && topics[0].toLowerCase() === eventTopic, "fragment/topic mismatch", "topics[0]", topics[0]);
             topics = topics.slice(1);
         }
         const indexed = [];
         const nonIndexed = [];
         const dynamic = [];
-        eventFragment.inputs.forEach((param, index) => {
+        fragment.inputs.forEach((param, index) => {
             if (param.indexed) {
                 if (param.type === "string" || param.type === "bytes" || param.baseType === "tuple" || param.baseType === "array") {
                     indexed.push(ParamType.from({ type: "bytes32", name: param.name }));
@@ -11933,7 +11965,7 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
         const values = [];
         const keys = [];
         let nonIndexedIndex = 0, indexedIndex = 0;
-        eventFragment.inputs.forEach((param, index) => {
+        fragment.inputs.forEach((param, index) => {
             let value = null;
             if (param.indexed) {
                 if (resultIndexed == null) {
@@ -12046,7 +12078,7 @@ getSelector(fragment: ErrorFragment | FunctionFragment): string {
  */
 
 //import { resolveAddress } from "@ethersproject/address";
-const BN_0$1 = BigInt(0);
+const BN_0$2 = BigInt(0);
 // -----------------------
 function getValue(value) {
     if (value == null) {
@@ -12780,7 +12812,7 @@ class TransactionResponse {
                         if (tx.data === this.data && tx.to === this.to && tx.value === this.value) {
                             reason = "repriced";
                         }
-                        else if (tx.data === "0x" && tx.from === tx.to && tx.value === BN_0$1) {
+                        else if (tx.data === "0x" && tx.from === tx.to && tx.value === BN_0$2) {
                             reason = "cancelled";
                         }
                         assert$1(false, "transaction was replaced", "TRANSACTION_REPLACED", {
@@ -12992,6 +13024,7 @@ class ContractEventPayload extends ContractUnknownEventPayload {
     }
 }
 
+const BN_0$1 = BigInt(0);
 function canCall(value) {
     return (value && typeof (value.call) === "function");
 }
@@ -13065,17 +13098,11 @@ function getProvider(value) {
 /**
  *  @_ignore:
  */
-async function copyOverrides(arg) {
+async function copyOverrides(arg, allowed) {
     // Create a shallow copy (we'll deep-ify anything needed during normalizing)
     const overrides = copyRequest(Typed.dereference(arg, "overrides"));
-    // Some sanity checking; these are what these methods adds
-    //if ((<any>overrides).to) {
-    if (overrides.to) {
-        assertArgument(false, "cannot override to", "overrides.to", overrides.to);
-    }
-    else if (overrides.data) {
-        assertArgument(false, "cannot override data", "overrides.data", overrides.data);
-    }
+    assertArgument(overrides.to == null || (allowed || []).indexOf("to") >= 0, "cannot override to", "overrides.to", overrides.to);
+    assertArgument(overrides.data == null || (allowed || []).indexOf("data") >= 0, "cannot override data", "overrides.data", overrides.data);
     // Resolve any from
     if (overrides.from) {
         overrides.from = await resolveAddress(overrides.from);
@@ -13098,6 +13125,59 @@ async function resolveArgs(_runner, inputs, args) {
             return value;
         });
     }));
+}
+class WrappedFallback {
+    _contract;
+    constructor(contract) {
+        defineProperties(this, { _contract: contract });
+        const proxy = new Proxy(this, {
+            // Perform send when called
+            apply: async (target, thisArg, args) => {
+                return await target.send(...args);
+            },
+        });
+        return proxy;
+    }
+    async populateTransaction(overrides) {
+        // If an overrides was passed in, copy it and normalize the values
+        const tx = (await copyOverrides(overrides, ["data"]));
+        tx.to = await this._contract.getAddress();
+        const iface = this._contract.interface;
+        // Only allow payable contracts to set non-zero value
+        const payable = iface.receive || (iface.fallback && iface.fallback.payable);
+        assertArgument(payable || (tx.value || BN_0$1) === BN_0$1, "cannot send value to non-payable contract", "overrides.value", tx.value);
+        // Only allow fallback contracts to set non-empty data
+        assertArgument(iface.fallback || (tx.data || "0x") === "0x", "cannot send data to receive-only contract", "overrides.data", tx.data);
+        return tx;
+    }
+    async staticCall(overrides) {
+        const runner = getRunner(this._contract.runner, "call");
+        assert$1(canCall(runner), "contract runner does not support calling", "UNSUPPORTED_OPERATION", { operation: "call" });
+        const tx = await this.populateTransaction(overrides);
+        try {
+            return await runner.call(tx);
+        }
+        catch (error) {
+            if (isCallException(error) && error.data) {
+                throw this._contract.interface.makeError(error.data, tx);
+            }
+            throw error;
+        }
+    }
+    async send(overrides) {
+        const runner = this._contract.runner;
+        assert$1(canSend(runner), "contract runner does not support sending transactions", "UNSUPPORTED_OPERATION", { operation: "sendTransaction" });
+        const tx = await runner.sendTransaction(await this.populateTransaction(overrides));
+        const provider = getProvider(this._contract.runner);
+        // @TODO: the provider can be null; make a custom dummy provider that will throw a
+        // meaningful error
+        return new ContractTransactionResponse(this._contract.interface, provider, tx);
+    }
+    async estimateGas(overrides) {
+        const runner = getRunner(this._contract.runner, "estimateGas");
+        assert$1(canEstimate(runner), "contract runner does not support gas estimation", "UNSUPPORTED_OPERATION", { operation: "estimateGas" });
+        return await runner.estimateGas(await this.populateTransaction(overrides));
+    }
 }
 class WrappedMethod extends _WrappedMethodBase() {
     name = ""; // Investigate!
@@ -13123,10 +13203,18 @@ class WrappedMethod extends _WrappedMethodBase() {
     }
     // Only works on non-ambiguous keys (refined fragment is always non-ambiguous)
     get fragment() {
-        return this._contract.interface.getFunction(this._key);
+        const fragment = this._contract.interface.getFunction(this._key);
+        assert$1(fragment, "no matching fragment", "UNSUPPORTED_OPERATION", {
+            operation: "fragment"
+        });
+        return fragment;
     }
     getFragment(...args) {
-        return this._contract.interface.getFunction(this._key, args);
+        const fragment = this._contract.interface.getFunction(this._key, args);
+        assert$1(fragment, "no matching fragment", "UNSUPPORTED_OPERATION", {
+            operation: "fragment"
+        });
+        return fragment;
     }
     async populateTransaction(...args) {
         const fragment = this.getFragment(...args);
@@ -13205,10 +13293,18 @@ class WrappedEvent extends _WrappedEventBase() {
     }
     // Only works on non-ambiguous keys
     get fragment() {
-        return this._contract.interface.getEvent(this._key);
+        const fragment = this._contract.interface.getEvent(this._key);
+        assert$1(fragment, "no matching fragment", "UNSUPPORTED_OPERATION", {
+            operation: "fragment"
+        });
+        return fragment;
     }
     getFragment(...args) {
-        return this._contract.interface.getEvent(this._key, args);
+        const fragment = this._contract.interface.getEvent(this._key, args);
+        assert$1(fragment, "no matching fragment", "UNSUPPORTED_OPERATION", {
+            operation: "fragment"
+        });
+        return fragment;
     }
 }
 ;
@@ -13238,7 +13334,9 @@ async function getSubInfo(contract, event) {
             if (isHexString(name, 32)) {
                 return name;
             }
-            return contract.interface.getEvent(name).topicHash;
+            const fragment = contract.interface.getEvent(name);
+            assertArgument(fragment, "unknown fragment", "name", name);
+            return fragment.topicHash;
         };
         // Array of Topics and Names; e.g. `[ "0x1234...89ab", "Transfer(address)" ]`
         topics = event.map((e) => {
@@ -13262,6 +13360,7 @@ async function getSubInfo(contract, event) {
         else {
             // Name or Signature; e.g. `"Transfer", `"Transfer(address)"`
             fragment = contract.interface.getEvent(event);
+            assertArgument(fragment, "unknown fragment", "event", event);
             topics = [fragment.topicHash];
         }
     }
@@ -13400,6 +13499,7 @@ class BaseContract {
     runner;
     filters;
     [internal];
+    fallback;
     constructor(target, abi, runner, _deployTx) {
         if (runner == null) {
             runner = null;
@@ -13466,6 +13566,9 @@ class BaseContract {
             }
         });
         defineProperties(this, { filters });
+        defineProperties(this, {
+            fallback: ((iface.receive || iface.fallback) ? (new WrappedFallback(this)) : null)
+        });
         // Return a Proxy that will respond to functions
         return new Proxy(this, {
             get: (target, _prop, receiver) => {
@@ -13762,67 +13865,6 @@ class ContractFactory {
  *
  *  @_section: api/providers/ens-resolver:ENS Resolver  [about-ens-rsolver]
  */
-const BN_1$1 = BigInt(1);
-const Empty = new Uint8Array([]);
-function parseBytes(result, start) {
-    if (result === "0x") {
-        return null;
-    }
-    const offset = toNumber(dataSlice(result, start, start + 32));
-    const length = toNumber(dataSlice(result, offset, offset + 32));
-    return dataSlice(result, offset + 32, offset + 32 + length);
-}
-function parseString(result, start) {
-    try {
-        const bytes = parseBytes(result, start);
-        if (bytes != null) {
-            return toUtf8String(bytes);
-        }
-    }
-    catch (error) { }
-    return null;
-}
-function numPad$1(value) {
-    const result = toBeArray(value);
-    if (result.length > 32) {
-        throw new Error("internal; should not happen");
-    }
-    const padded = new Uint8Array(32);
-    padded.set(result, 32 - result.length);
-    return padded;
-}
-function bytesPad$1(value) {
-    if ((value.length % 32) === 0) {
-        return value;
-    }
-    const result = new Uint8Array(Math.ceil(value.length / 32) * 32);
-    result.set(value);
-    return result;
-}
-// ABI Encodes a series of (bytes, bytes, ...)
-function encodeBytes$1(datas) {
-    const result = [];
-    let byteCount = 0;
-    // Add place-holders for pointers as we add items
-    for (let i = 0; i < datas.length; i++) {
-        result.push(Empty);
-        byteCount += 32;
-    }
-    for (let i = 0; i < datas.length; i++) {
-        const data = getBytes(datas[i]);
-        // Update the bytes offset
-        result[i] = numPad$1(byteCount);
-        // The length and padded value of data
-        result.push(numPad$1(data.length));
-        result.push(bytesPad$1(data));
-        byteCount += 32 + Math.ceil(data.length / 32) * 32;
-    }
-    return concat(result);
-}
-function callAddress(value) {
-    assertArgument(value.length === 66 && dataSlice(value, 0, 12) === "0x000000000000000000000000", "invalid call address", "value", value);
-    return getAddress("0x" + value.substring(26));
-}
 // @TODO: This should use the fetch-data:ipfs gateway
 // Trim off the ipfs:// prefix and return the default gateway URL
 function getIpfsLink(link) {
@@ -13860,7 +13902,7 @@ class MulticoinProviderPlugin {
         throw new Error("unsupported coin");
     }
 }
-const BasicMulticoinPluginId = "org.ethers.plugins.BasicMulticoinProviderPlugin";
+const BasicMulticoinPluginId = "org.ethers.plugins.provider.BasicMulticoin";
 /**
  *  A basic multicoin provider plugin.
  */
@@ -13895,68 +13937,71 @@ class EnsResolver {
     name;
     // For EIP-2544 names, the ancestor that provided the resolver
     #supports2544;
+    #resolver;
     constructor(provider, address, name) {
         defineProperties(this, { provider, address, name });
         this.#supports2544 = null;
+        this.#resolver = new Contract(address, [
+            "function supportsInterface(bytes4) view returns (bool)",
+            "function resolve(bytes, bytes) view returns (bytes)",
+            "function addr(bytes32) view returns (address)",
+            "function addr(bytes32, uint) view returns (address)",
+            "function text(bytes32, string) view returns (string)",
+            "function contenthash() view returns (bytes)",
+        ], provider);
     }
     /**
      *  Resolves to true if the resolver supports wildcard resolution.
      */
     async supportsWildcard() {
-        if (!this.#supports2544) {
-            // supportsInterface(bytes4 = selector("resolve(bytes,bytes)"))
-            this.#supports2544 = this.provider.call({
-                to: this.address,
-                data: "0x01ffc9a79061b92300000000000000000000000000000000000000000000000000000000"
-            }).then((result) => {
-                return (getBigInt(result) === BN_1$1);
-            }).catch((error) => {
-                if (error.code === "CALL_EXCEPTION") {
-                    return false;
+        if (this.#supports2544 == null) {
+            this.#supports2544 = (async () => {
+                try {
+                    return await this.#resolver.supportsInterface("0x9061b923");
                 }
-                // Rethrow the error: link is down, etc. Let future attempts retry.
-                this.#supports2544 = null;
-                throw error;
-            });
+                catch (error) {
+                    // Wildcard resolvers must understand supportsInterface
+                    // and return true.
+                    if (isError(error, "CALL_EXCEPTION")) {
+                        return false;
+                    }
+                    // Let future attempts try again...
+                    this.#supports2544 = null;
+                    throw error;
+                }
+            })();
         }
         return await this.#supports2544;
     }
-    /**
-     *  Fetch the %%selector%% with %%parameters%% using call, resolving
-     *  recursively if the resolver supports it.
-     */
-    async _fetch(selector, parameters) {
-        if (parameters == null) {
-            parameters = "0x";
-        }
-        // e.g. keccak256("addr(bytes32,uint256)")
-        const addrData = concat([selector, namehash(this.name), parameters]);
-        const tx = {
-            to: this.address,
-            from: ZeroAddress,
-            enableCcipRead: true,
-            data: addrData
-        };
-        // Wildcard support; use EIP-2544 to resolve the request
-        let wrapped = false;
+    async #fetch(funcName, params) {
+        params = (params || []).slice();
+        const iface = this.#resolver.interface;
+        // The first parameters is always the nodehash
+        params.unshift(namehash(this.name));
+        let fragment = null;
         if (await this.supportsWildcard()) {
-            wrapped = true;
-            // selector("resolve(bytes,bytes)")
-            tx.data = concat(["0x9061b923", encodeBytes$1([dnsEncode(this.name), addrData])]);
-        }
-        try {
-            let data = await this.provider.call(tx);
-            assert$1((getBytes(data).length % 32) !== 4, "execution reverted during JSON-RPC call (could not parse reason; invalid data length)", "CALL_EXCEPTION", {
-                action: "call", data, reason: null, transaction: tx,
-                invocation: null, revert: null
+            fragment = iface.getFunction(funcName);
+            assert$1(fragment, "missing fragment", "UNKNOWN_ERROR", {
+                info: { funcName }
             });
-            if (wrapped) {
-                return parseBytes(data, 0);
+            params = [
+                dnsEncode(this.name),
+                iface.encodeFunctionData(fragment, params)
+            ];
+            funcName = "resolve(bytes,bytes)";
+        }
+        params.push({
+            ccipReadEnable: true
+        });
+        try {
+            const result = await this.#resolver[funcName](...params);
+            if (fragment) {
+                return iface.decodeFunctionResult(fragment, result)[0];
             }
-            return data;
+            return result;
         }
         catch (error) {
-            if (error.code !== "CALL_EXCEPTION") {
+            if (!isError(error, "CALL_EXCEPTION")) {
                 throw error;
             }
         }
@@ -13972,16 +14017,15 @@ class EnsResolver {
         }
         if (coinType === 60) {
             try {
-                // keccak256("addr(bytes32)")
-                const result = await this._fetch("0x3b3b57de");
+                const result = await this.#fetch("addr(bytes32)");
                 // No address
-                if (result == null || result === "0x" || result === ZeroHash) {
+                if (result == null || result === ZeroAddress) {
                     return null;
                 }
-                return callAddress(result);
+                return result;
             }
             catch (error) {
-                if (error.code === "CALL_EXCEPTION") {
+                if (isError(error, "CALL_EXCEPTION")) {
                     return null;
                 }
                 throw error;
@@ -14001,7 +14045,7 @@ class EnsResolver {
             return null;
         }
         // keccak256("addr(bytes32,uint256")
-        const data = parseBytes((await this._fetch("0xf1cb7e06", numPad$1(coinType))) || "0x", 0);
+        const data = await this.#fetch("addr(bytes32,uint)", [coinType]);
         // No address
         if (data == null || data === "0x") {
             return null;
@@ -14021,29 +14065,24 @@ class EnsResolver {
      *  if unconfigured.
      */
     async getText(key) {
-        // The key encoded as parameter to fetchBytes
-        let keyBytes = toUtf8Bytes(key);
-        // The nodehash consumes the first slot, so the string pointer targets
-        // offset 64, with the length at offset 64 and data starting at offset 96
-        const calldata = getBytes(concat([numPad$1(64), numPad$1(keyBytes.length), keyBytes]));
-        const hexBytes = parseBytes((await this._fetch("0x59d1d43c", bytesPad$1(calldata))) || "0x", 0);
-        if (hexBytes == null || hexBytes === "0x") {
+        const data = await this.#fetch("text(bytes32,string)", [key]);
+        if (data == null || data === "0x") {
             return null;
         }
-        return toUtf8String(hexBytes);
+        return data;
     }
     /**
      *  Rsolves to the content-hash or ``null`` if unconfigured.
      */
     async getContentHash() {
         // keccak256("contenthash()")
-        const hexBytes = parseBytes((await this._fetch("0xbc1c58d1")) || "0x", 0);
+        const data = await this.#fetch("contenthash()");
         // No contenthash
-        if (hexBytes == null || hexBytes === "0x") {
+        if (data == null || data === "0x") {
             return null;
         }
         // IPFS (CID: 1, Type: 70=DAG-PB, 72=libp2p-key)
-        const ipfs = hexBytes.match(/^0x(e3010170|e5010172)(([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f]*))$/);
+        const ipfs = data.match(/^0x(e3010170|e5010172)(([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f]*))$/);
         if (ipfs) {
             const scheme = (ipfs[1] === "e3010170") ? "ipfs" : "ipns";
             const length = parseInt(ipfs[4], 16);
@@ -14052,13 +14091,13 @@ class EnsResolver {
             }
         }
         // Swarm (CID: 1, Type: swarm-manifest; hash/length hard-coded to keccak256/32)
-        const swarm = hexBytes.match(/^0xe40101fa011b20([0-9a-f]*)$/);
+        const swarm = data.match(/^0xe40101fa011b20([0-9a-f]*)$/);
         if (swarm && swarm[1].length === 64) {
             return `bzz:/\/${swarm[1]}`;
         }
         assert$1(false, `invalid or unsupported content hash data`, "UNSUPPORTED_OPERATION", {
             operation: "getContentHash()",
-            info: { data: hexBytes }
+            info: { data }
         });
     }
     /**
@@ -14070,7 +14109,8 @@ class EnsResolver {
      *  method may be useful.
      */
     async getAvatar() {
-        return (await this._getAvatar()).url;
+        const avatar = await this._getAvatar();
+        return avatar.url;
     }
     /**
      *  When resolving an avatar, there are many steps involved, such
@@ -14088,7 +14128,7 @@ class EnsResolver {
             const avatar = await this.getText("avatar");
             if (avatar == null) {
                 linkage.push({ type: "!avatar", value: "" });
-                throw new Error("!avatar");
+                return { url: null, linkage };
             }
             linkage.push({ type: "avatar", value: avatar });
             for (let i = 0; i < matchers.length; i++) {
@@ -14111,58 +14151,55 @@ class EnsResolver {
                     case "erc721":
                     case "erc1155": {
                         // Depending on the ERC type, use tokenURI(uint256) or url(uint256)
-                        const selector = (scheme === "erc721") ? "0xc87b56dd" : "0x0e89341c";
+                        const selector = (scheme === "erc721") ? "tokenURI(uint256)" : "uri(uint256)";
                         linkage.push({ type: scheme, value: avatar });
                         // The owner of this name
                         const owner = await this.getAddress();
                         if (owner == null) {
                             linkage.push({ type: "!owner", value: "" });
-                            throw new Error("!owner");
+                            return { url: null, linkage };
                         }
                         const comps = (match[2] || "").split("/");
                         if (comps.length !== 2) {
                             linkage.push({ type: `!${scheme}caip`, value: (match[2] || "") });
-                            throw new Error("!caip");
+                            return { url: null, linkage };
                         }
-                        const addr = getAddress(comps[0]);
-                        const tokenId = numPad$1(comps[1]);
+                        const tokenId = comps[1];
+                        const contract = new Contract(comps[0], [
+                            // ERC-721
+                            "function tokenURI(uint) view returns (string)",
+                            "function ownerOf(uint) view returns (address)",
+                            // ERC-1155
+                            "function uri(uint) view returns (string)",
+                            "function balanceOf(address, uint256) view returns (uint)"
+                        ], this.provider);
                         // Check that this account owns the token
                         if (scheme === "erc721") {
-                            // ownerOf(uint256 tokenId)
-                            const tokenOwner = callAddress(await this.provider.call({
-                                to: addr, data: concat(["0x6352211e", tokenId])
-                            }));
+                            const tokenOwner = await contract.ownerOf(tokenId);
                             if (owner !== tokenOwner) {
                                 linkage.push({ type: "!owner", value: tokenOwner });
-                                throw new Error("!owner");
+                                return { url: null, linkage };
                             }
                             linkage.push({ type: "owner", value: tokenOwner });
                         }
                         else if (scheme === "erc1155") {
-                            // balanceOf(address owner, uint256 tokenId)
-                            const balance = getBigInt(await this.provider.call({
-                                to: addr, data: concat(["0x00fdd58e", zeroPadValue(owner, 32), tokenId])
-                            }));
+                            const balance = await contract.balanceOf(owner, tokenId);
                             if (!balance) {
                                 linkage.push({ type: "!balance", value: "0" });
-                                throw new Error("!balance");
+                                return { url: null, linkage };
                             }
                             linkage.push({ type: "balance", value: balance.toString() });
                         }
                         // Call the token contract for the metadata URL
-                        const tx = {
-                            to: comps[0],
-                            data: concat([selector, tokenId])
-                        };
-                        let metadataUrl = parseString(await this.provider.call(tx), 0);
-                        if (metadataUrl == null) {
+                        let metadataUrl = await contract[selector](tokenId);
+                        if (metadataUrl == null || metadataUrl === "0x") {
                             linkage.push({ type: "!metadata-url", value: "" });
-                            throw new Error("!metadata-url");
+                            return { url: null, linkage };
                         }
                         linkage.push({ type: "metadata-url-base", value: metadataUrl });
                         // ERC-1155 allows a generic {id} in the URL
                         if (scheme === "erc1155") {
-                            metadataUrl = metadataUrl.replace("{id}", hexlify(tokenId).substring(2));
+                            metadataUrl = metadataUrl.replace("{id}", toBeHex(tokenId, 32).substring(2));
                             linkage.push({ type: "metadata-url-expanded", value: metadataUrl });
                         }
                         // Transform IPFS metadata links
@@ -14186,20 +14223,20 @@ class EnsResolver {
                                 if (bytes) {
                                     linkage.push({ type: "!metadata", value: hexlify(bytes) });
                                 }
-                                throw error;
+                                return { url: null, linkage };
                             }
-                            throw error;
+                            return { url: null, linkage };
                         }
                         if (!metadata) {
                             linkage.push({ type: "!metadata", value: "" });
-                            throw new Error("!metadata");
+                            return { url: null, linkage };
                         }
                         linkage.push({ type: "metadata", value: JSON.stringify(metadata) });
                         // Pull the image URL out
                         let imageUrl = metadata.image;
                         if (typeof (imageUrl) !== "string") {
                             linkage.push({ type: "!imageUrl", value: "" });
-                            throw new Error("!imageUrl");
+                            return { url: null, linkage };
                         }
                         if (imageUrl.match(/^(https:\/\/|data:)/i)) {
                             // Allow
@@ -14209,7 +14246,7 @@ class EnsResolver {
                             const ipfs = imageUrl.match(matcherIpfs);
                             if (ipfs == null) {
                                 linkage.push({ type: "!imageUrl-ipfs", value: imageUrl });
-                                throw new Error("!imageUrl-ipfs");
+                                return { url: null, linkage };
                             }
                             linkage.push({ type: "imageUrl-ipfs", value: imageUrl });
                             imageUrl = getIpfsLink(imageUrl);
@@ -14220,27 +14257,28 @@ class EnsResolver {
                 }
             }
         }
-        catch (error) {
-            console.log("EE", error);
-        }
+        catch (error) { }
         return { linkage, url: null };
     }
-    static async #getResolver(provider, name) {
+    static async getEnsAddress(provider) {
         const network = await provider.getNetwork();
-        const ensPlugin = network.getPlugin("org.ethers.network-plugins.ens");
+        const ensPlugin = network.getPlugin("org.ethers.plugins.network.Ens");
         // No ENS...
         assert$1(ensPlugin, "network does not support ENS", "UNSUPPORTED_OPERATION", {
-            operation: "getResolver", info: { network: network.name }
+            operation: "getEnsAddress", info: { network }
         });
+        return ensPlugin.address;
+    }
+    static async #getResolver(provider, name) {
+        const ensAddr = await EnsResolver.getEnsAddress(provider);
         try {
-            // keccak256("resolver(bytes32)")
-            const addrData = await provider.call({
-                to: ensPlugin.address,
-                data: concat(["0x0178b8bf", namehash(name)]),
+            const contract = new Contract(ensAddr, [
+                "function resolver(bytes32) view returns (address)"
+            ], provider);
+            const addr = await contract.resolver(namehash(name), {
                 enableCcipRead: true
             });
-            const addr = callAddress(addrData);
-            if (addr === dataSlice(ZeroHash, 0, 20)) {
+            if (addr === ZeroAddress) {
                 return null;
             }
             return addr;
@@ -14254,7 +14292,7 @@ class EnsResolver {
     }
     /**
      *  Resolve to the ENS resolver for %%name%% using %%provider%% or
-     *  ``null`` if uncinfigured.
+     *  ``null`` if unconfigured.
      */
     static async fromName(provider, name) {
         let currentName = name;
@@ -14560,7 +14598,7 @@ class GasCostPlugin extends NetworkPlugin {
         if (effectiveBlock == null) {
             effectiveBlock = 0;
         }
-        super(`org.ethers.network-plugins.gas-cost#${(effectiveBlock || 0)}`);
+        super(`org.ethers.network.plugins.GasCost#${(effectiveBlock || 0)}`);
         const props = { effectiveBlock };
         function set(name, nullish) {
             let value = (costs || {})[name];
@@ -14590,7 +14628,7 @@ class EnsPlugin extends NetworkPlugin {
     // The network ID that the ENS contract lives on
     targetNetwork;
     constructor(address, targetNetwork) {
-        super("org.ethers.network-plugins.ens");
+        super("org.ethers.plugins.network.Ens");
         defineProperties(this, {
             address: (address || EnsAddress),
             targetNetwork: ((targetNetwork == null) ? 1 : targetNetwork)
@@ -14600,31 +14638,13 @@ class EnsPlugin extends NetworkPlugin {
         return new EnsPlugin(this.address, this.targetNetwork);
     }
 }
-/*
-export class MaxPriorityFeePlugin extends NetworkPlugin {
-    readonly priorityFee!: bigint;
-
-    constructor(priorityFee: BigNumberish) {
-        super("org.ethers.plugins.max-priority-fee");
-        defineProperties<MaxPriorityFeePlugin>(this, {
-            priorityFee: logger.getBigInt(priorityFee)
-        });
-    }
-
-    async getPriorityFee(provider: Provider): Promise<bigint> {
-        return this.priorityFee;
-    }
-
-    clone(): MaxPriorityFeePlugin {
-        return new MaxPriorityFeePlugin(this.priorityFee);
-    }
-}
-*/
 class FeeDataNetworkPlugin extends NetworkPlugin {
     #feeDataFunc;
-    get feeDataFunc() { return this.#feeDataFunc; }
+    get feeDataFunc() {
+        return this.#feeDataFunc;
+    }
     constructor(feeDataFunc) {
-        super("org.ethers.network-plugins.fee-data");
+        super("org.ethers.plugins.network.FeeData");
         this.#feeDataFunc = feeDataFunc;
     }
     async getFeeData(provider) {
@@ -14757,7 +14777,7 @@ class Network {
         return clone;
     }
     computeIntrinsicGas(tx) {
-        const costs = this.getPlugin("org.ethers.gas-cost") || (new GasCostPlugin());
+        const costs = this.getPlugin("org.ethers.plugins.network.GasCost") || (new GasCostPlugin());
         let gas = costs.txBase;
         if (tx.to == null) {
             gas += costs.txCreate;
@@ -14963,9 +14983,17 @@ class PollingBlockSubscriber {
         // @TODO: Put a cap on the maximum number of events per loop?
         if (blockNumber !== this.#blockNumber) {
             for (let b = this.#blockNumber + 1; b <= blockNumber; b++) {
-                this.#provider.emit("block", b);
+                // We have been stopped
+                if (this.#poller == null) {
+                    return;
+                }
+                await this.#provider.emit("block", b);
             }
             this.#blockNumber = blockNumber;
+        }
+        // We have been stopped
+        if (this.#poller == null) {
+            return;
         }
         this.#poller = this.#provider._setTimeout(this.#poll.bind(this), this.#interval);
     }
@@ -14973,8 +15001,8 @@ class PollingBlockSubscriber {
         if (this.#poller) {
             throw new Error("subscriber already running");
         }
-        this.#poll();
         this.#poller = this.#provider._setTimeout(this.#poll.bind(this), this.#interval);
+        this.#poll();
     }
     stop() {
         if (!this.#poller) {
@@ -15270,7 +15298,7 @@ class AbstractProvider {
         this.#subs = new Map();
         this.#plugins = new Map();
         this.#pausedState = null;
-        this.#nextTimer = 0;
+        this.#nextTimer = 1;
         this.#timers = new Map();
         this.#disableCcipRead = false;
     }
@@ -15582,7 +15610,7 @@ class AbstractProvider {
             // We may want to compute this more accurately in the future,
             // using the formula "check if the base fee is correct".
             // See: https://eips.ethereum.org/EIPS/eip-1559
-            maxPriorityFeePerGas = BigInt("1500000000");
+            maxPriorityFeePerGas = BigInt("1000000000");
             // Allow a network to override their maximum priority fee per gas
             //const priorityFeePlugin = (await this.getNetwork()).getPlugin<MaxPriorityFeePlugin>("org.ethers.plugins.max-priority-fee");
             //if (priorityFeePlugin) {
@@ -15807,28 +15835,38 @@ class AbstractProvider {
         return null;
     }
     async resolveName(name) {
-        if (isHexString(name, 20)) {
-            return name;
-        }
-        //if (typeof(name) === "string") {
         const resolver = await this.getResolver(name);
         if (resolver) {
             return await resolver.getAddress();
         }
-        /*
-    } else {
-        const address = await name.getAddress();
-        if (address == null) {
-            return logger.throwArgumentError("Addressable returned no address", "name", name);
-        }
-        return address;
-    }
-    */
         return null;
     }
     async lookupAddress(address) {
-        throw new Error();
-        //return "TODO";
+        address = getAddress(address);
+        const node = namehash(address.substring(2).toLowerCase() + ".addr.reverse");
+        try {
+            const ensAddr = await EnsResolver.getEnsAddress(this);
+            const ensContract = new Contract(ensAddr, [
+                "function resolver(bytes32) view returns (address)"
+            ], this);
+            const resolver = await ensContract.resolver(node);
+            if (resolver == null || resolver === ZeroHash) {
+                return null;
+            }
+            const resolverContract = new Contract(resolver, [
+                "function name(bytes32) view returns (string)"
+            ], this);
+            const name = await resolverContract.name(node);
+            const check = await this.resolveName(name);
+            if (check !== address) {
+                console.log("FAIL", address, check);
+            }
+            return name;
+        }
+        catch (error) {
+            console.log("TEMP", error);
+        }
+        return null;
     }
     async waitForTransaction(hash, _confirms, timeout) {
         const confirms = (_confirms != null) ? _confirms : 1;
@@ -15871,8 +15909,9 @@ class AbstractProvider {
         });
     }
     async waitForBlock(blockTag) {
-        throw new Error();
-        //return new Block(<any><unknown>{ }, this);
+        assert$1(false, "not implemented yet", "NOT_IMPLEMENTED", {
+            operation: "waitForBlock"
+        });
     }
     _clearTimeout(timerId) {
         const timer = this.#timers.get(timerId);
@@ -15991,7 +16030,9 @@ class AbstractProvider {
     }
     async emit(event, ...args) {
         const sub = await this.#hasSub(event, args);
-        if (!sub) {
+        // If there is not subscription or if a recent emit removed
+        // the last of them (which also deleted the sub) do nothing
+        if (!sub || sub.listeners.length === 0) {
             return false;
         }
         ;
@@ -16212,13 +16253,13 @@ function parseOffchainLookup(data) {
     const result = {
         sender: "", urls: [], calldata: "", selector: "", extraData: "", errorArgs: []
     };
-    if (dataLength(data) < 5 * 32) {
-        throw new Error("insufficient OffchainLookup data");
-    }
+    assert$1(dataLength(data) >= 5 * 32, "insufficient OffchainLookup data", "OFFCHAIN_FAULT", {
+        reason: "insufficient OffchainLookup data"
+    });
     const sender = dataSlice(data, 0, 32);
-    if (dataSlice(sender, 0, 12) !== dataSlice(zeros, 0, 12)) {
-        throw new Error("corrupt OffchainLookup sender");
-    }
+    assert$1(dataSlice(sender, 0, 12) === dataSlice(zeros, 0, 12), "corrupt OffchainLookup sender", "OFFCHAIN_FAULT", {
+        reason: "corrupt OffchainLookup sender"
+    });
     result.sender = dataSlice(sender, 12);
     // Read the URLs from the response
     try {
@@ -16236,7 +16277,9 @@ function parseOffchainLookup(data) {
         result.urls = urls;
     }
     catch (error) {
-        throw new Error("corrupt OffchainLookup urls");
+        assert$1(false, "corrupt OffchainLookup urls", "OFFCHAIN_FAULT", {
+            reason: "corrupt OffchainLookup urls"
+        });
     }
     // Get the CCIP calldata to forward
     try {
@@ -16247,12 +16290,14 @@ function parseOffchainLookup(data) {
         result.calldata = calldata;
     }
     catch (error) {
-        throw new Error("corrupt OffchainLookup calldata");
+        assert$1(false, "corrupt OffchainLookup calldata", "OFFCHAIN_FAULT", {
+            reason: "corrupt OffchainLookup calldata"
+        });
     }
     // Get the callbackSelector (bytes4)
-    if (dataSlice(data, 100, 128) !== dataSlice(zeros, 0, 28)) {
-        throw new Error("corrupt OffchainLookup callbaackSelector");
-    }
+    assert$1(dataSlice(data, 100, 128) === dataSlice(zeros, 0, 28), "corrupt OffchainLookup callbaackSelector", "OFFCHAIN_FAULT", {
+        reason: "corrupt OffchainLookup callbaackSelector"
+    });
     result.selector = dataSlice(data, 96, 100);
     // Get the extra data to send back to the contract as context
     try {
@@ -16263,7 +16308,9 @@ function parseOffchainLookup(data) {
         result.extraData = extraData;
     }
     catch (error) {
-        throw new Error("corrupt OffchainLookup extraData");
+        assert$1(false, "corrupt OffchainLookup extraData", "OFFCHAIN_FAULT", {
+            reason: "corrupt OffchainLookup extraData"
+        });
     }
     result.errorArgs = "sender,urls,calldata,selector,extraData".split(/,/).map((k) => result[k]);
     return result;
@@ -16274,47 +16321,47 @@ function parseOffchainLookup(data) {
  *
  *  @_section: api/providers/abstract-signer: Subclassing Signer [abstract-signer]
  */
+function checkProvider(signer, operation) {
+    if (signer.provider) {
+        return signer.provider;
+    }
+    assert$1(false, "missing provider", "UNSUPPORTED_OPERATION", { operation });
+}
+async function populate(signer, tx) {
+    let pop = copyRequest(tx);
+    if (pop.to != null) {
+        pop.to = resolveAddress(pop.to, signer);
+    }
+    if (pop.from != null) {
+        const from = pop.from;
+        pop.from = Promise.all([
+            signer.getAddress(),
+            resolveAddress(from, signer)
+        ]).then(([address, from]) => {
+            assertArgument(address.toLowerCase() === from.toLowerCase(), "transaction from mismatch", "tx.from", from);
+            return address;
+        });
+    }
+    else {
+        pop.from = signer.getAddress();
+    }
+    return await resolveProperties(pop);
+}
 class AbstractSigner {
     provider;
     constructor(provider) {
         defineProperties(this, { provider: (provider || null) });
     }
-    #checkProvider(operation) {
-        if (this.provider) {
-            return this.provider;
-        }
-        assert$1(false, "missing provider", "UNSUPPORTED_OPERATION", { operation });
-    }
     async getNonce(blockTag) {
-        return this.#checkProvider("getTransactionCount").getTransactionCount(await this.getAddress(), blockTag);
-    }
-    async #populate(tx) {
-        let pop = copyRequest(tx);
-        if (pop.to != null) {
-            pop.to = resolveAddress(pop.to, this);
-        }
-        if (pop.from != null) {
-            const from = pop.from;
-            pop.from = Promise.all([
-                this.getAddress(),
-                resolveAddress(from, this)
-            ]).then(([address, from]) => {
-                assertArgument(address.toLowerCase() === from.toLowerCase(), "transaction from mismatch", "tx.from", from);
-                return address;
-            });
-        }
-        else {
-            pop.from = this.getAddress();
-        }
-        return await resolveProperties(pop);
+        return checkProvider(this, "getTransactionCount").getTransactionCount(await this.getAddress(), blockTag);
     }
     async populateCall(tx) {
-        const pop = await this.#populate(tx);
+        const pop = await populate(this, tx);
         return pop;
     }
     async populateTransaction(tx) {
-        const provider = this.#checkProvider("populateTransaction");
-        const pop = await this.#populate(tx);
+        const provider = checkProvider(this, "populateTransaction");
+        const pop = await populate(this, tx);
         if (pop.nonce == null) {
             pop.nonce = await this.getNonce("pending");
         }
@@ -16418,17 +16465,17 @@ class AbstractSigner {
         return await resolveProperties(pop);
     }
     async estimateGas(tx) {
-        return this.#checkProvider("estimateGas").estimateGas(await this.populateCall(tx));
+        return checkProvider(this, "estimateGas").estimateGas(await this.populateCall(tx));
     }
     async call(tx) {
-        return this.#checkProvider("call").call(await this.populateCall(tx));
+        return checkProvider(this, "call").call(await this.populateCall(tx));
     }
     async resolveName(name) {
-        const provider = this.#checkProvider("resolveName");
+        const provider = checkProvider(this, "resolveName");
         return await provider.resolveName(name);
     }
     async sendTransaction(tx) {
-        const provider = this.#checkProvider("sendTransaction");
+        const provider = checkProvider(this, "sendTransaction");
         const pop = await this.populateTransaction(tx);
         delete pop.from;
         const txObj = Transaction.from(pop);
@@ -16456,49 +16503,6 @@ class VoidSigner extends AbstractSigner {
     }
     async signTypedData(domain, types, value) {
         this.#throwUnsupported("typed-data", "signTypedData");
-    }
-}
-class WrappedSigner extends AbstractSigner {
-    #signer;
-    constructor(signer) {
-        super(signer.provider);
-        this.#signer = signer;
-    }
-    async getAddress() {
-        return await this.#signer.getAddress();
-    }
-    connect(provider) {
-        return new WrappedSigner(this.#signer.connect(provider));
-    }
-    async getNonce(blockTag) {
-        return await this.#signer.getNonce(blockTag);
-    }
-    async populateCall(tx) {
-        return await this.#signer.populateCall(tx);
-    }
-    async populateTransaction(tx) {
-        return await this.#signer.populateTransaction(tx);
-    }
-    async estimateGas(tx) {
-        return await this.#signer.estimateGas(tx);
-    }
-    async call(tx) {
-        return await this.#signer.call(tx);
-    }
-    async resolveName(name) {
-        return this.#signer.resolveName(name);
-    }
-    async signTransaction(tx) {
-        return await this.#signer.signTransaction(tx);
-    }
-    async sendTransaction(tx) {
-        return await this.#signer.sendTransaction(tx);
-    }
-    async signMessage(message) {
-        return await this.#signer.signMessage(message);
-    }
-    async signTypedData(domain, types, value) {
-        return await this.#signer.signTypedData(domain, types, value);
     }
 }
 
@@ -17215,6 +17219,14 @@ class JsonRpcApiProvider extends AbstractProvider {
     getRpcError(payload, _error) {
         const { method } = payload;
         const { error } = _error;
+        if (method === "eth_estimateGas" && error.message) {
+            const msg = error.message;
+            if (!msg.match(/revert/i) && msg.match(/insufficient funds/i)) {
+                return makeError("insufficient funds", "INSUFFICIENT_FUNDS", {
+                    transaction: (payload.params[0]),
+                });
+            }
+        }
         if (method === "eth_call" || method === "eth_estimateGas") {
             const result = spelunkData(error);
             const e = AbiCoder.getBuiltinCallException((method === "eth_call") ? "call" : "estimateGas", (payload.params[0]), (result ? result.data : null));
@@ -17530,8 +17542,21 @@ function spelunkMessage(value) {
     return result;
 }
 
+/**
+ *  [[link-ankr]] provides a third-party service for connecting to
+ *  various blockchains over JSON-RPC.
+ *
+ *  **Supported Networks**
+ *
+ *  - Ethereum Mainnet (``mainnet``)
+ *  - Goerli Testnet (``goerli``)
+ *  - Polygon (``matic``)
+ *  - Arbitrum (``arbitrum``)
+ *
+ *  @_subsection: api/providers/thirdparty:Ankr  [providers-ankr]
+ */
 const defaultApiKey$1 = "9f7d929b018cdffb338517efa06f58359e86ff1ffd350bc889738523659e7972";
-function getHost$3(name) {
+function getHost$4(name) {
     switch (name) {
         case "mainnet":
             return "rpc.ankr.com/eth";
@@ -17545,12 +17570,25 @@ function getHost$3(name) {
     assertArgument(false, "unsupported network", "network", name);
 }
 /**
- *  About Ankr...
+ *  The **AnkrProvider** connects to the [[link-ankr]]
+ *  JSON-RPC end-points.
  *
- *  @_docloc: api/providers/thirdparty
+ *  By default, a highly-throttled API key is used, which is
+ *  appropriate for quick prototypes and simple scripts. To
+ *  gain access to an increased rate-limit, it is highly
+ *  recommended to [sign up here](link-ankr-signup).
  */
 class AnkrProvider extends JsonRpcProvider {
+    /**
+     *  The API key for the Ankr connection.
+     */
     apiKey;
+    /**
+     *  Create a new **AnkrProvider**.
+     *
+     *  By default connecting to ``mainnet`` with a highly throttled
+     *  API key.
+     */
     constructor(_network, apiKey) {
         if (_network == null) {
             _network = "mainnet";
@@ -17572,11 +17610,15 @@ class AnkrProvider extends JsonRpcProvider {
         catch (error) { }
         return super._getProvider(chainId);
     }
+    /**
+     *  Returns a prepared request for connecting to %%network%% with
+     *  %%apiKey%%.
+     */
     static getRequest(network, apiKey) {
         if (apiKey == null) {
             apiKey = defaultApiKey$1;
         }
-        const request = new FetchRequest(`https:/\/${getHost$3(network.name)}/${apiKey}`);
+        const request = new FetchRequest(`https:/\/${getHost$4(network.name)}/${apiKey}`);
         request.allowGzip = true;
         if (apiKey === defaultApiKey$1) {
             request.retryFunc = async (request, response, attempt) => {
@@ -17599,8 +17641,13 @@ class AnkrProvider extends JsonRpcProvider {
     }
 }
 
+/**
+ *  About Alchemy
+ *
+ *  @_subsection: api/providers/thirdparty:Alchemy  [providers-alchemy]
+ */
 const defaultApiKey = "_gg7wSSi0KMBsdKnGVfHDueq6xMB9EkC";
-function getHost$2(name) {
+function getHost$3(name) {
     switch (name) {
         case "mainnet":
             return "eth-mainnet.alchemyapi.io";
@@ -17622,7 +17669,13 @@ function getHost$2(name) {
     assertArgument(false, "unsupported network", "network", name);
 }
 /**
- *  The AlchemyProvider is backed by the [[alchemyapu]] API.
+ *  The **AlchemyProvider** connects to the [[link-alchemy]]
+ *  JSON-RPC end-points.
+ *
+ *  By default, a highly-throttled API key is used, which is
+ *  appropriate for quick prototypes and simple scripts. To
+ *  gain access to an increased rate-limit, it is highly
+ *  recommended to [sign up here](link-alchemy-signup).
  *
  *  @_docloc: api/providers/thirdparty
  */
@@ -17686,7 +17739,7 @@ class AlchemyProvider extends JsonRpcProvider {
         if (apiKey == null) {
             apiKey = defaultApiKey;
         }
-        const request = new FetchRequest(`https:/\/${getHost$2(network.name)}/v2/${apiKey}`);
+        const request = new FetchRequest(`https:/\/${getHost$3(network.name)}/v2/${apiKey}`);
         request.allowGzip = true;
         if (apiKey === defaultApiKey) {
             request.retryFunc = async (request, response, attempt) => {
@@ -17699,9 +17752,12 @@ class AlchemyProvider extends JsonRpcProvider {
 }
 
 /**
- *  Aboud Cloudflare...
+ *  About Cloudflare
  *
- *  @_docloc: api/providers/thirdparty
+ *  @_subsection: api/providers/thirdparty:Cloudflare  [providers-cloudflare]
+ */
+/**
+ *  About Cloudflare...
  */
 class CloudflareProvider extends JsonRpcProvider {
     constructor(_network) {
@@ -17714,46 +17770,93 @@ class CloudflareProvider extends JsonRpcProvider {
     }
 }
 
-const THROTTLE = 2000;
-const EtherscanPluginId = "org.ethers.plugins.Etherscan";
 /**
- *  Aboud Cloudflare...
+ *  [[link-etherscan]] provides a third-party service for connecting to
+ *  various blockchains over a combination of JSON-RPC and custom API
+ *  endpoints.
+ *
+ *  **Supported Networks**
+ *
+ *  - Ethereum Mainnet (``mainnet``)
+ *  - Goerli Testnet (``goerli``)
+ *  - Sepolia Testnet (``sepolia``)
+ *  - Arbitrum (``arbitrum``)
+ *  - Arbitrum Goerli Testnet (``arbitrum-goerli``)
+ *  - Optimism (``optimism``)
+ *  - Optimism Goerli Testnet (``optimism-goerli``)
+ *  - Polygon (``matic``)
+ *  - Polygon Mumbai Testnet (``maticmum``)
+ *
+ *  @_subsection api/providers/thirdparty:Etherscan  [providers-etherscan]
+ */
+const THROTTLE = 2000;
+function isPromise(value) {
+    return (value && typeof (value.then) === "function");
+}
+const EtherscanPluginId = "org.ethers.plugins.provider.Etherscan";
+/**
+ *  A Network can include an **EtherscanPlugin** to provide
+ *  a custom base URL.
  *
  *  @_docloc: api/providers/thirdparty:Etherscan
  */
 class EtherscanPlugin extends NetworkPlugin {
+    /**
+     *  The Etherscan API base URL.
+     */
     baseUrl;
-    communityApiKey;
-    constructor(baseUrl, communityApiKey) {
+    /**
+     *  Creates a new **EtherscanProvider** which will use
+     *  %%baseUrl%%.
+     */
+    constructor(baseUrl) {
         super(EtherscanPluginId);
-        //if (communityApiKey == null) { communityApiKey = null; }
-        defineProperties(this, { baseUrl, communityApiKey });
+        defineProperties(this, { baseUrl });
     }
     clone() {
-        return new EtherscanPlugin(this.baseUrl, this.communityApiKey);
+        return new EtherscanPlugin(this.baseUrl);
     }
 }
 let nextId = 1;
 /**
- *  Aboud Etherscan...
+ *  The **EtherscanBaseProvider** is the super-class of
+ *  [[EtherscanProvider]], which should generally be used instead.
+ *
+ *  Since the **EtherscanProvider** includes additional code for
+ *  [[Contract]] access, in //rare cases// that contracts are not
+ *  used, this class can reduce code size.
  *
  *  @_docloc: api/providers/thirdparty:Etherscan
  */
-class BaseEtherscanProvider extends AbstractProvider {
+class EtherscanProvider extends AbstractProvider {
+    /**
+     *  The connected network.
+     */
     network;
+    /**
+     *  The API key or null if using the community provided bandwidth.
+     */
     apiKey;
     #plugin;
-    constructor(_network, apiKey) {
+    /**
+     *  Creates a new **EtherscanBaseProvider**.
+     */
+    constructor(_network, _apiKey) {
+        const apiKey = (_apiKey != null) ? _apiKey : null;
         super();
         const network = Network.from(_network);
         this.#plugin = network.getPlugin(EtherscanPluginId);
-        if (apiKey == null && this.#plugin) {
-            apiKey = this.#plugin.communityApiKey;
-        }
         defineProperties(this, { apiKey, network });
         // Test that the network is supported by Etherscan
         this.getBaseUrl();
     }
+    /**
+     *  Returns the base URL.
+     *
+     *  If an [[EtherscanPlugin]] is configured on the
+     *  [[EtherscanBaseProvider_network]], returns the plugin's
+     *  baseUrl.
+     */
     getBaseUrl() {
         if (this.#plugin) {
             return this.#plugin.baseUrl;
@@ -17781,6 +17884,9 @@ class BaseEtherscanProvider extends AbstractProvider {
         }
         assertArgument(false, "unsupported network", "network", this.network);
     }
+    /**
+     *  Returns the URL for the %%module%% and %%params%%.
+     */
     getUrl(module, params) {
         const query = Object.keys(params).reduce((accum, key) => {
             const value = params[key];
@@ -17792,9 +17898,15 @@ class BaseEtherscanProvider extends AbstractProvider {
         const apiKey = ((this.apiKey) ? `&apikey=${this.apiKey}` : "");
         return `${this.getBaseUrl()}/api?module=${module}${query}${apiKey}`;
     }
+    /**
+     *  Returns the URL for using POST requests.
+     */
     getPostUrl() {
         return `${this.getBaseUrl()}/api`;
     }
+    /**
+     *  Returns the parameters for using POST requests.
+     */
     getPostData(module, params) {
         params.module = module;
         params.apikey = this.apiKey;
@@ -17803,6 +17915,11 @@ class BaseEtherscanProvider extends AbstractProvider {
     async detectNetwork() {
         return this.network;
     }
+    /**
+     *  Resolves to the result of calling %%module%% with %%params%%.
+     *
+     *  If %%post%%, the request is made as a POST request.
+     */
     async fetch(module, params, post) {
         const id = nextId++;
         const url = (post ? this.getPostUrl() : this.getUrl(module, params));
@@ -17877,7 +17994,9 @@ class BaseEtherscanProvider extends AbstractProvider {
             return result.result;
         }
     }
-    // The transaction has already been sanitized by the calls in Provider
+    /**
+     *  Returns %%transaction%% normalized for the Etherscan API.
+     */
     _getTransactionPostData(transaction) {
         const result = {};
         for (let key in transaction) {
@@ -17904,6 +18023,9 @@ class BaseEtherscanProvider extends AbstractProvider {
         }
         return result;
     }
+    /**
+     *  Throws the normalized Etherscan error.
+     */
     _checkError(req, error, transaction) {
         // Pull any message out if, possible
         let message = "";
@@ -17918,6 +18040,13 @@ class BaseEtherscanProvider extends AbstractProvider {
                     message = error.info.message;
                 }
                 catch (e) { }
+            }
+        }
+        if (req.method === "estimateGas") {
+            if (!message.match(/revert/i) && message.match(/insufficient funds/i)) {
+                assert$1(false, "insufficient funds", "INSUFFICIENT_FUNDS", {
+                    transaction: req.transaction
+                });
             }
         }
         if (req.method === "call" || req.method === "estimateGas") {
@@ -18106,46 +18235,39 @@ class BaseEtherscanProvider extends AbstractProvider {
     async getNetwork() {
         return this.network;
     }
+    /**
+     *  Resolves to the current price of ether.
+     *
+     *  This returns ``0`` on any network other than ``mainnet``.
+     */
     async getEtherPrice() {
         if (this.network.name !== "mainnet") {
             return 0.0;
         }
         return parseFloat((await this.fetch("stats", { action: "ethprice" })).ethusd);
     }
-    isCommunityResource() {
-        const plugin = this.network.getPlugin(EtherscanPluginId);
-        if (plugin) {
-            return (plugin.communityApiKey === this.apiKey);
-        }
-        return (this.apiKey == null);
-    }
-}
-
-/**
- *  Aboud Etherscan...
- *
- *  @_subsection api/providers/thirdparty:Etherscan  [etherscan]
- */
-function isPromise(value) {
-    return (value && typeof (value.then) === "function");
-}
-/**
- *  Aboud EtherscanProvider...
- */
-class EtherscanProvider extends BaseEtherscanProvider {
+    /**
+     *  Resolves to a [Contract]] for %%address%%, using the
+     *  Etherscan API to retreive the Contract ABI.
+     */
     async getContract(_address) {
         let address = this._getAddress(_address);
         if (isPromise(address)) {
             address = await address;
         }
         try {
-            const resp = await this.fetch("contract", { action: "getabi", address });
+            const resp = await this.fetch("contract", {
+                action: "getabi", address
+            });
             const abi = JSON.parse(resp);
             return new Contract(address, abi, this);
         }
         catch (error) {
             return null;
         }
+    }
+    isCommunityResource() {
+        return (this.apiKey == null);
     }
 }
 
@@ -18455,12 +18577,25 @@ class WebSocketProvider extends SocketProvider {
 }
 
 /**
- *  About INFURA
+ *  [[link-infura]] provides a third-party service for connecting to
+ *  various blockchains over JSON-RPC.
  *
- *  @_subsection: api/providers/thirdparty:INFURA  [infura]
+ *  **Supported Networks**
+ *
+ *  - Ethereum Mainnet (``mainnet``)
+ *  - Goerli Testnet (``goerli``)
+ *  - Sepolia Testnet (``sepolia``)
+ *  - Arbitrum (``arbitrum``)
+ *  - Arbitrum Goerli Testnet (``arbitrum-goerli``)
+ *  - Optimism (``optimism``)
+ *  - Optimism Goerli Testnet (``optimism-goerli``)
+ *  - Polygon (``matic``)
+ *  - Polygon Mumbai Testnet (``maticmum``)
+ *
+ *  @_subsection: api/providers/thirdparty:INFURA  [providers-infura]
  */
 const defaultProjectId = "84842078b09946638c03157f83405213";
-function getHost$1(name) {
+function getHost$2(name) {
     switch (name) {
         case "mainnet":
             return "mainnet.infura.io";
@@ -18484,11 +18619,29 @@ function getHost$1(name) {
     assertArgument(false, "unsupported network", "network", name);
 }
 /**
- *  INFURA...
+ *  The **InfuraWebSocketProvider** connects to the [[link-infura]]
+ *  WebSocket end-points.
+ *
+ *  By default, a highly-throttled API key is used, which is
+ *  appropriate for quick prototypes and simple scripts. To
+ *  gain access to an increased rate-limit, it is highly
+ *  recommended to [sign up here](link-infura-signup).
  */
 class InfuraWebSocketProvider extends WebSocketProvider {
+    /**
+     *  The Project ID for the INFURA connection.
+     */
     projectId;
+    /**
+     *  The Project Secret.
+     *
+     *  If null, no authenticated requests are made. This should not
+     *  be used outside of private contexts.
+     */
     projectSecret;
+    /**
+     *  Creates a new **InfuraWebSocketProvider**.
+     */
     constructor(network, projectId) {
         const provider = new InfuraProvider(network, projectId);
         const req = provider._getConnection();
@@ -18505,11 +18658,29 @@ class InfuraWebSocketProvider extends WebSocketProvider {
     }
 }
 /**
- *  Aboud Cloudflare...
+ *  The **InfuraProvider** connects to the [[link-infura]]
+ *  JSON-RPC end-points.
+ *
+ *  By default, a highly-throttled API key is used, which is
+ *  appropriate for quick prototypes and simple scripts. To
+ *  gain access to an increased rate-limit, it is highly
+ *  recommended to [sign up here](link-infura-signup).
  */
 class InfuraProvider extends JsonRpcProvider {
+    /**
+     *  The Project ID for the INFURA connection.
+     */
     projectId;
+    /**
+     *  The Project Secret.
+     *
+     *  If null, no authenticated requests are made. This should not
+     *  be used outside of private contexts.
+     */
     projectSecret;
+    /**
+     *  Creates a new **InfuraProvider**.
+     */
     constructor(_network, projectId, projectSecret) {
         if (_network == null) {
             _network = "mainnet";
@@ -18535,9 +18706,16 @@ class InfuraProvider extends JsonRpcProvider {
     isCommunityResource() {
         return (this.projectId === defaultProjectId);
     }
+    /**
+     *  Creates a new **InfuraWebSocketProvider**.
+     */
     static getWebSocketProvider(network, projectId) {
         return new InfuraWebSocketProvider(network, projectId);
     }
+    /**
+     *  Returns a prepared request for connecting to %%network%%
+     *  with %%projectId%% and %%projectSecret%%.
+     */
     static getRequest(network, projectId, projectSecret) {
         if (projectId == null) {
             projectId = defaultProjectId;
@@ -18545,7 +18723,7 @@ class InfuraProvider extends JsonRpcProvider {
         if (projectSecret == null) {
             projectSecret = null;
         }
-        const request = new FetchRequest(`https:/\/${getHost$1(network.name)}/v3/${projectId}`);
+        const request = new FetchRequest(`https:/\/${getHost$2(network.name)}/v3/${projectId}`);
         request.allowGzip = true;
         if (projectSecret) {
             request.setCredentials("", projectSecret);
@@ -18561,12 +18739,24 @@ class InfuraProvider extends JsonRpcProvider {
 }
 
 /**
- *  About Quicknode
+ *  [[link-quicknode]] provides a third-party service for connecting to
+ *  various blockchains over JSON-RPC.
  *
- *  @_subsection: api/providers/thirdparty:QuickNode  [backend-quicknode]
+ *  **Supported Networks**
+ *
+ *  - Ethereum Mainnet (``mainnet``)
+ *  - Goerli Testnet (``goerli``)
+ *  - Arbitrum (``arbitrum``)
+ *  - Arbitrum Goerli Testnet (``arbitrum-goerli``)
+ *  - Optimism (``optimism``)
+ *  - Optimism Goerli Testnet (``optimism-goerli``)
+ *  - Polygon (``matic``)
+ *  - Polygon Mumbai Testnet (``maticmum``)
+ *
+ *  @_subsection: api/providers/thirdparty:QuickNode  [providers-quicknode]
  */
 const defaultToken = "919b412a057b5e9c9b6dce193c5a60242d6efadb";
-function getHost(name) {
+function getHost$1(name) {
     switch (name) {
         case "mainnet":
             return "ethers.quiknode.pro";
@@ -18590,10 +18780,22 @@ function getHost(name) {
     assertArgument(false, "unsupported network", "network", name);
 }
 /**
- *  About QuickNode
+ *  The **QuickNodeProvider** connects to the [[link-quicknode]]
+ *  JSON-RPC end-points.
+ *
+ *  By default, a highly-throttled API token is used, which is
+ *  appropriate for quick prototypes and simple scripts. To
+ *  gain access to an increased rate-limit, it is highly
+ *  recommended to [sign up here](link-quicknode).
  */
 class QuickNodeProvider extends JsonRpcProvider {
+    /**
+     *  The API token.
+     */
     token;
+    /**
+     *  Creates a new **QuickNodeProvider**.
+     */
     constructor(_network, token) {
         if (_network == null) {
             _network = "mainnet";
@@ -18616,11 +18818,15 @@ class QuickNodeProvider extends JsonRpcProvider {
     isCommunityResource() {
         return (this.token === defaultToken);
     }
+    /**
+     *  Returns a new request prepared for %%network%% and the
+     *  %%token%%.
+     */
     static getRequest(network, token) {
         if (token == null) {
             token = defaultToken;
         }
-        const request = new FetchRequest(`https:/\/${getHost(network.name)}/${token}`);
+        const request = new FetchRequest(`https:/\/${getHost$1(network.name)}/${token}`);
         request.allowGzip = true;
         //if (projectSecret) { request.setCredentials("", projectSecret); }
         if (token === defaultToken) {
@@ -19242,6 +19448,58 @@ function getDefaultProvider(network, options) {
     return new FallbackProvider(providers);
 }
 
+class NonceManager extends AbstractSigner {
+    signer;
+    #noncePromise;
+    #delta;
+    constructor(signer) {
+        super(signer.provider);
+        defineProperties(this, { signer });
+        this.#noncePromise = null;
+        this.#delta = 0;
+    }
+    async getAddress() {
+        return this.signer.getAddress();
+    }
+    connect(provider) {
+        return new NonceManager(this.signer.connect(provider));
+    }
+    async getNonce(blockTag) {
+        if (blockTag === "pending") {
+            if (this.#noncePromise == null) {
+                this.#noncePromise = super.getNonce("pending");
+            }
+            return (await this.#noncePromise) + this.#delta;
+        }
+        return super.getNonce(blockTag);
+    }
+    increment() {
+        this.#delta++;
+    }
+    reset() {
+        this.#delta = 0;
+        this.#noncePromise = null;
+    }
+    async sendTransaction(tx) {
+        const noncePromise = this.getNonce("pending");
+        this.increment();
+        tx = await this.signer.populateTransaction(tx);
+        tx.nonce = await noncePromise;
+        // @TODO: Maybe handle interesting/recoverable errors?
+        // Like don't increment if the tx was certainly not sent
+        return await this.signer.sendTransaction(tx);
+    }
+    signTransaction(tx) {
+        return this.signer.signTransaction(tx);
+    }
+    signMessage(message) {
+        return this.signer.signMessage(message);
+    }
+    signTypedData(domain, types, value) {
+        return this.signer.signTypedData(domain, types, value);
+    }
+}
+
 ;
 class BrowserProvider extends JsonRpcApiPollingProvider {
     #request;
@@ -19323,6 +19581,107 @@ class BrowserProvider extends JsonRpcApiPollingProvider {
             }
         }
         return await super.getSigner(address);
+    }
+}
+
+/**
+ *  [[link-pocket]] provides a third-party service for connecting to
+ *  various blockchains over JSON-RPC.
+ *
+ *  **Supported Networks**
+ *
+ *  - Ethereum Mainnet (``mainnet``)
+ *  - Goerli Testnet (``goerli``)
+ *  - Polygon (``matic``)
+ *  - Arbitrum (``arbitrum``)
+ *
+ *  @_subsection: api/providers/thirdparty:Pocket  [providers-pocket]
+ */
+const defaultApplicationId = "62e1ad51b37b8e00394bda3b";
+function getHost(name) {
+    switch (name) {
+        case "mainnet":
+            return "eth-mainnet.gateway.pokt.network";
+        case "goerli":
+            return "eth-goerli.gateway.pokt.network";
+        case "matic":
+            return "poly-mainnet.gateway.pokt.network";
+        case "maticmum":
+            return "polygon-mumbai-rpc.gateway.pokt.network";
+    }
+    assertArgument(false, "unsupported network", "network", name);
+}
+/**
+ *  The **PocketProvider** connects to the [[link-pocket]]
+ *  JSON-RPC end-points.
+ *
+ *  By default, a highly-throttled API key is used, which is
+ *  appropriate for quick prototypes and simple scripts. To
+ *  gain access to an increased rate-limit, it is highly
+ *  recommended to [sign up here](link-pocket-signup).
+ */
+class PocketProvider extends JsonRpcProvider {
+    /**
+     *  The Application ID for the Pocket connection.
+     */
+    applicationId;
+    /**
+     *  The Application Secret for making authenticated requests
+     *  to the Pocket connection.
+     */
+    applicationSecret;
+    /**
+     *  Create a new **PocketProvider**.
+     *
+     *  By default connecting to ``mainnet`` with a highly throttled
+     *  API key.
+     */
+    constructor(_network, applicationId, applicationSecret) {
+        if (_network == null) {
+            _network = "mainnet";
+        }
+        const network = Network.from(_network);
+        if (applicationId == null) {
+            applicationId = defaultApplicationId;
+        }
+        if (applicationSecret == null) {
+            applicationSecret = null;
+        }
+        const options = { staticNetwork: network };
+        const request = PocketProvider.getRequest(network, applicationId, applicationSecret);
+        super(request, network, options);
+        defineProperties(this, { applicationId, applicationSecret });
+    }
+    _getProvider(chainId) {
+        try {
+            return new PocketProvider(chainId, this.applicationId, this.applicationSecret);
+        }
+        catch (error) { }
+        return super._getProvider(chainId);
+    }
+    /**
+     *  Returns a prepared request for connecting to %%network%% with
+     *  %%applicationId%%.
+     */
+    static getRequest(network, applicationId, applicationSecret) {
+        if (applicationId == null) {
+            applicationId = defaultApplicationId;
+        }
+        const request = new FetchRequest(`https:/\/${getHost(network.name)}/v1/lb/${applicationId}`);
+        request.allowGzip = true;
+        if (applicationSecret) {
+            request.setCredentials("", applicationSecret);
+        }
+        if (applicationId === defaultApplicationId) {
+            request.retryFunc = async (request, response, attempt) => {
+                showThrottleMessage("PocketProvider");
+                return true;
+            };
+        }
+        return request;
+    }
+    isCommunityResource() {
+        return (this.applicationId === defaultApplicationId);
     }
 }
 
@@ -21584,6 +21943,7 @@ var ethers = /*#__PURE__*/Object.freeze({
     Signature: Signature,
     SigningKey: SigningKey,
     id: id,
+    ensNormalize: ensNormalize,
     isValidName: isValidName,
     namehash: namehash,
     dnsEncode: dnsEncode,
@@ -21600,6 +21960,7 @@ var ethers = /*#__PURE__*/Object.freeze({
     TransactionReceipt: TransactionReceipt,
     TransactionResponse: TransactionResponse,
     AbstractSigner: AbstractSigner,
+    NonceManager: NonceManager,
     VoidSigner: VoidSigner,
     AbstractProvider: AbstractProvider,
     FallbackProvider: FallbackProvider,
@@ -21612,6 +21973,7 @@ var ethers = /*#__PURE__*/Object.freeze({
     CloudflareProvider: CloudflareProvider,
     EtherscanProvider: EtherscanProvider,
     InfuraProvider: InfuraProvider,
+    PocketProvider: PocketProvider,
     QuickNodeProvider: QuickNodeProvider,
     IpcSocketProvider: IpcSocketProvider,
     SocketProvider: SocketProvider,
@@ -21699,5 +22061,5 @@ var ethers = /*#__PURE__*/Object.freeze({
  *  @_navTitle: API
  */
 
-export { AbiCoder, AbstractProvider, AbstractSigner, AlchemyProvider, AnkrProvider, BaseContract, BaseWallet, Block, BrowserProvider, CloudflareProvider, ConstructorFragment, Contract, ContractEventPayload, ContractFactory, ContractTransactionReceipt, ContractTransactionResponse, EnsResolver, ErrorFragment, EtherSymbol, EtherscanProvider, EventFragment, EventLog, FallbackProvider, FeeData, FetchCancelSignal, FetchRequest, FetchResponse, FixedNumber, Fragment, FunctionFragment, HDNodeVoidWallet, HDNodeWallet, Indexed, InfuraProvider, Interface, IpcSocketProvider, JsonRpcApiProvider, JsonRpcProvider, JsonRpcSigner, LangEn, Log, LogDescription, MaxInt256, MaxUint256, MessagePrefix, MinInt256, Mnemonic, N$1 as N, Network, ParamType, QuickNodeProvider, Result, Signature, SigningKey, SocketProvider, Transaction, TransactionDescription, TransactionReceipt, TransactionResponse, Typed, TypedDataEncoder, Utf8ErrorFuncs, VoidSigner, Wallet, WebSocketProvider, WeiPerEther, Wordlist, WordlistOwl, WordlistOwlA, ZeroAddress, ZeroHash, accessListify, assert$1 as assert, assertArgument, assertArgumentCount, assertNormalize, assertPrivate, checkResultErrors, computeAddress, computeHmac, concat, dataLength, dataSlice, decodeBase58, decodeBase64, decodeBytes32String, decodeRlp, decryptCrowdsaleJson, decryptKeystoreJson, decryptKeystoreJsonSync, defaultPath, defineProperties, dnsEncode, encodeBase58, encodeBase64, encodeBytes32String, encodeRlp, encryptKeystoreJson, encryptKeystoreJsonSync, ethers, formatEther, formatUnits, fromTwos, getAccountPath, getAddress, getBigInt, getBytes, getBytesCopy, getCreate2Address, getCreateAddress, getDefaultProvider, getIcapAddress, getNumber, getUint, hashMessage, hexlify, id, isAddress, isAddressable, isBytesLike, isCallException, isCrowdsaleJson, isError, isHexString, isKeystoreJson, isValidName, keccak256, lock, makeError, mask, namehash, parseEther, parseUnits, pbkdf2, randomBytes, recoverAddress, resolveAddress, ripemd160, scrypt, scryptSync, sha256, sha512, solidityPacked, solidityPackedKeccak256, solidityPackedSha256, stripZerosLeft, toBeArray, toBeHex, toBigInt, toNumber, toQuantity, toTwos, toUtf8Bytes, toUtf8CodePoints, toUtf8String, verifyMessage, version, zeroPadBytes, zeroPadValue };
+export { AbiCoder, AbstractProvider, AbstractSigner, AlchemyProvider, AnkrProvider, BaseContract, BaseWallet, Block, BrowserProvider, CloudflareProvider, ConstructorFragment, Contract, ContractEventPayload, ContractFactory, ContractTransactionReceipt, ContractTransactionResponse, EnsResolver, ErrorFragment, EtherSymbol, EtherscanProvider, EventFragment, EventLog, FallbackProvider, FeeData, FetchCancelSignal, FetchRequest, FetchResponse, FixedNumber, Fragment, FunctionFragment, HDNodeVoidWallet, HDNodeWallet, Indexed, InfuraProvider, Interface, IpcSocketProvider, JsonRpcApiProvider, JsonRpcProvider, JsonRpcSigner, LangEn, Log, LogDescription, MaxInt256, MaxUint256, MessagePrefix, MinInt256, Mnemonic, N$1 as N, Network, NonceManager, ParamType, PocketProvider, QuickNodeProvider, Result, Signature, SigningKey, SocketProvider, Transaction, TransactionDescription, TransactionReceipt, TransactionResponse, Typed, TypedDataEncoder, Utf8ErrorFuncs, VoidSigner, Wallet, WebSocketProvider, WeiPerEther, Wordlist, WordlistOwl, WordlistOwlA, ZeroAddress, ZeroHash, accessListify, assert$1 as assert, assertArgument, assertArgumentCount, assertNormalize, assertPrivate, checkResultErrors, computeAddress, computeHmac, concat, dataLength, dataSlice, decodeBase58, decodeBase64, decodeBytes32String, decodeRlp, decryptCrowdsaleJson, decryptKeystoreJson, decryptKeystoreJsonSync, defaultPath, defineProperties, dnsEncode, encodeBase58, encodeBase64, encodeBytes32String, encodeRlp, encryptKeystoreJson, encryptKeystoreJsonSync, ensNormalize, ethers, formatEther, formatUnits, fromTwos, getAccountPath, getAddress, getBigInt, getBytes, getBytesCopy, getCreate2Address, getCreateAddress, getDefaultProvider, getIcapAddress, getNumber, getUint, hashMessage, hexlify, id, isAddress, isAddressable, isBytesLike, isCallException, isCrowdsaleJson, isError, isHexString, isKeystoreJson, isValidName, keccak256, lock, makeError, mask, namehash, parseEther, parseUnits, pbkdf2, randomBytes, recoverAddress, resolveAddress, ripemd160, scrypt, scryptSync, sha256, sha512, solidityPacked, solidityPackedKeccak256, solidityPackedSha256, stripZerosLeft, toBeArray, toBeHex, toBigInt, toNumber, toQuantity, toTwos, toUtf8Bytes, toUtf8CodePoints, toUtf8String, verifyMessage, version, zeroPadBytes, zeroPadValue };
 //# sourceMappingURL=ethers.js.map

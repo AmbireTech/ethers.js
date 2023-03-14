@@ -48,7 +48,7 @@ export {
 
 export {
     id,
-    isValidName, namehash, dnsEncode,
+    ensNormalize, isValidName, namehash, dnsEncode,
     hashMessage, verifyMessage,
     solidityPacked, solidityPackedKeccak256, solidityPackedSha256,
     TypedDataEncoder
@@ -59,7 +59,7 @@ export {
 
     Block, FeeData, Log, TransactionReceipt, TransactionResponse,
 
-    AbstractSigner, VoidSigner,
+    AbstractSigner, NonceManager, VoidSigner,
 
     AbstractProvider,
 
@@ -69,8 +69,7 @@ export {
     BrowserProvider,
 
     AlchemyProvider, AnkrProvider, CloudflareProvider, EtherscanProvider,
-    InfuraProvider, QuickNodeProvider,
-    //PocketProvider } from "./provider-pocket.js";
+    InfuraProvider, PocketProvider, QuickNodeProvider,
 
     IpcSocketProvider, SocketProvider, WebSocketProvider,
 

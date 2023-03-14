@@ -72,17 +72,17 @@ export interface JsonFragment {
 /**
  *  The format to serialize the output as.
  */
-export declare type FormatType = "sighash" | "minimal" | "full" | "json";
+export type FormatType = "sighash" | "minimal" | "full" | "json";
 /**
  *  When [walking](ParamType-walk) a [[ParamType]], this is called
  *  on each component.
  */
-export declare type ParamTypeWalkFunc = (type: string, value: any) => any;
+export type ParamTypeWalkFunc = (type: string, value: any) => any;
 /**
  *  When [walking asynchronously](ParamType-walkAsync) a [[ParamType]],
  *  this is called on each component.
  */
-export declare type ParamTypeWalkAsyncFunc = (type: string, value: any) => any | Promise<any>;
+export type ParamTypeWalkAsyncFunc = (type: string, value: any) => any | Promise<any>;
 /**
  *  Each input and output of a [[Fragment]] is an Array of **PAramType**.
  */
@@ -198,7 +198,7 @@ export declare class ParamType {
 /**
  *  The type of a [[Fragment]].
  */
-export declare type FragmentType = "constructor" | "error" | "event" | "function" | "struct";
+export type FragmentType = "constructor" | "error" | "event" | "fallback" | "function" | "struct";
 /**
  *  An abstract class to represent An individual fragment from a parse ABI.
  */
@@ -289,6 +289,7 @@ export declare class EventFragment extends NamedFragment {
      */
     get topicHash(): string;
     format(format?: FormatType): string;
+    static getTopicHash(name: string, params?: Array<any>): string;
     static from(obj: any): EventFragment;
     static isFragment(value: any): value is EventFragment;
 }
@@ -309,6 +310,19 @@ export declare class ConstructorFragment extends Fragment {
 /**
  *  A Fragment which represents a method.
  */
+export declare class FallbackFragment extends Fragment {
+    /**
+     *  If the function can be sent value during invocation.
+     */
+    readonly payable: boolean;
+    constructor(guard: any, inputs: ReadonlyArray<ParamType>, payable: boolean);
+    format(format?: FormatType): string;
+    static from(obj: any): FallbackFragment;
+    static isFragment(value: any): value is FallbackFragment;
+}
+/**
+ *  A Fragment which represents a method.
+ */
 export declare class FunctionFragment extends NamedFragment {
     /**
      *  If the function is constant (e.g. ``pure`` or ``view`` functions).
@@ -322,9 +336,9 @@ export declare class FunctionFragment extends NamedFragment {
      *  The state mutability (e.g. ``payable``, ``nonpayable``, ``view``
      *  or ``pure``)
      */
-    readonly stateMutability: string;
+    readonly stateMutability: "payable" | "nonpayable" | "view" | "pure";
     /**
-     *  If the function can be send a value during invocation.
+     *  If the function can be sent value during invocation.
      */
     readonly payable: boolean;
     /**
@@ -334,12 +348,13 @@ export declare class FunctionFragment extends NamedFragment {
     /**
      *  @private
      */
-    constructor(guard: any, name: string, stateMutability: string, inputs: ReadonlyArray<ParamType>, outputs: ReadonlyArray<ParamType>, gas: null | bigint);
+    constructor(guard: any, name: string, stateMutability: "payable" | "nonpayable" | "view" | "pure", inputs: ReadonlyArray<ParamType>, outputs: ReadonlyArray<ParamType>, gas: null | bigint);
     /**
      *  The Function selector.
      */
     get selector(): string;
     format(format?: FormatType): string;
+    static getSelector(name: string, params?: Array<any>): string;
     static from(obj: any): FunctionFragment;
     static isFragment(value: any): value is FunctionFragment;
 }

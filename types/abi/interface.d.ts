@@ -5,7 +5,7 @@
  */
 import { AbiCoder } from "./abi-coder.js";
 import { checkResultErrors, Result } from "./coders/abstract-coder.js";
-import { ConstructorFragment, ErrorFragment, EventFragment, Fragment, FunctionFragment, ParamType } from "./fragments.js";
+import { ConstructorFragment, ErrorFragment, EventFragment, FallbackFragment, Fragment, FunctionFragment, ParamType } from "./fragments.js";
 import { Typed } from "./typed.js";
 import type { BigNumberish, BytesLike, CallExceptionError, CallExceptionTransaction } from "../utils/index.js";
 import type { JsonFragment } from "./fragments.js";
@@ -44,7 +44,7 @@ export declare class Indexed {
 /**
  *  @TODO
  */
-export declare type InterfaceAbi = string | ReadonlyArray<Fragment | JsonFragment | string>;
+export type InterfaceAbi = string | ReadonlyArray<Fragment | JsonFragment | string>;
 /**
  *  An Interface abstracts many of the low-level details for
  *  encoding and decoding the data on the blockchain.
@@ -65,6 +65,14 @@ export declare class Interface {
      *  The Contract constructor.
      */
     readonly deploy: ConstructorFragment;
+    /**
+     *  The Fallback method, if any.
+     */
+    readonly fallback: null | FallbackFragment;
+    /**
+     *  If receiving ether is supported.
+     */
+    readonly receive: boolean;
     /**
      *  Create a new Interface for the %%fragments%%.
      */
@@ -100,7 +108,7 @@ export declare class Interface {
      *  If the %%key%% and %%values%% do not refine to a single function in
      *  the ABI, this will throw.
      */
-    getFunction(key: string, values?: Array<any | Typed>): FunctionFragment;
+    getFunction(key: string, values?: Array<any | Typed>): null | FunctionFragment;
     /**
      *  Iterate over all functions, calling %%callback%%, sorted by their name.
      */
@@ -120,7 +128,7 @@ export declare class Interface {
      *  If the %%key%% and %%values%% do not refine to a single event in
      *  the ABI, this will throw.
      */
-    getEvent(key: string, values?: Array<any | Typed>): EventFragment;
+    getEvent(key: string, values?: Array<any | Typed>): null | EventFragment;
     /**
      *  Iterate over all events, calling %%callback%%, sorted by their name.
      */
@@ -135,7 +143,7 @@ export declare class Interface {
      *  If the %%key%% and %%values%% do not refine to a single error in
      *  the ABI, this will throw.
      */
-    getError(key: string, values?: Array<any | Typed>): ErrorFragment;
+    getError(key: string, values?: Array<any | Typed>): null | ErrorFragment;
     /**
      *  Iterate over all errors, calling %%callback%%, sorted by their name.
      */
@@ -160,27 +168,27 @@ export declare class Interface {
     /**
      *  Encodes the transaction revert data for a call result that
      *  reverted from the the Contract with the sepcified %%error%%
-     *  (see [[getError]] for valid values for %%key%%) with the %%values%%.
+     *  (see [[getError]] for valid values for %%fragment%%) with the %%values%%.
      *
      *  This is generally not used by most developers, unless trying to mock
      *  a result from a Contract.
      */
-    encodeErrorResult(key: ErrorFragment | string, values?: ReadonlyArray<any>): string;
+    encodeErrorResult(fragment: ErrorFragment | string, values?: ReadonlyArray<any>): string;
     /**
      *  Decodes the %%data%% from a transaction ``tx.data`` for
      *  the function specified (see [[getFunction]] for valid values
-     *  for %%key%%).
+     *  for %%fragment%%).
      *
      *  Most developers should prefer the [[parseTransaction]] method
      *  instead, which will automatically detect the fragment.
      */
-    decodeFunctionData(key: FunctionFragment | string, data: BytesLike): Result;
+    decodeFunctionData(fragment: FunctionFragment | string, data: BytesLike): Result;
     /**
      *  Encodes the ``tx.data`` for a transaction that calls the function
-     *  specified (see [[getFunction]] for valid values for %%key%%) with
+     *  specified (see [[getFunction]] for valid values for %%fragment%%) with
      *  the %%values%%.
      */
-    encodeFunctionData(key: FunctionFragment | string, values?: ReadonlyArray<any>): string;
+    encodeFunctionData(fragment: FunctionFragment | string, values?: ReadonlyArray<any>): string;
     /**
      *  Decodes the result %%data%% (e.g. from an ``eth_call``) for the
      *  specified function (see [[getFunction]] for valid values for
@@ -195,18 +203,18 @@ export declare class Interface {
     /**
      *  Encodes the result data (e.g. from an ``eth_call``) for the
      *  specified function (see [[getFunction]] for valid values
-     *  for %%key%%) with %%values%%.
+     *  for %%fragment%%) with %%values%%.
      *
      *  This is generally not used by most developers, unless trying to mock
      *  a result from a Contract.
      */
-    encodeFunctionResult(key: FunctionFragment | string, values?: ReadonlyArray<any>): string;
-    encodeFilterTopics(eventFragment: EventFragment | string, values: ReadonlyArray<any>): Array<null | string | Array<string>>;
-    encodeEventLog(eventFragment: EventFragment | string, values: ReadonlyArray<any>): {
+    encodeFunctionResult(fragment: FunctionFragment | string, values?: ReadonlyArray<any>): string;
+    encodeFilterTopics(fragment: EventFragment | string, values: ReadonlyArray<any>): Array<null | string | Array<string>>;
+    encodeEventLog(fragment: EventFragment | string, values: ReadonlyArray<any>): {
         data: string;
         topics: Array<string>;
     };
-    decodeEventLog(eventFragment: EventFragment | string, data: BytesLike, topics?: ReadonlyArray<string>): Result;
+    decodeEventLog(fragment: EventFragment | string, data: BytesLike, topics?: ReadonlyArray<string>): Result;
     /**
      *  Parses a transaction, finding the matching function and extracts
      *  the parameter values along with other useful function details.

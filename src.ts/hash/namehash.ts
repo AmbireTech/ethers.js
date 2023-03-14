@@ -1,11 +1,11 @@
 
 import { keccak256 } from "../crypto/index.js";
 import {
-    concat, hexlify, assertArgument, toUtf8Bytes, toUtf8String
+    concat, hexlify, assertArgument, toUtf8Bytes
 } from "../utils/index.js";
 
 
-import { ens_normalize } from "@adraffy/ens-normalize";
+import { ens_normalize } from "@adraffy/ens-normalize/xnf";
 
 const Zeros = new Uint8Array(32);
 Zeros.fill(0);
@@ -16,7 +16,7 @@ function checkComponent(comp: Uint8Array): Uint8Array {
 }
 
 function ensNameSplit(name: string): Array<Uint8Array> {
-    const bytes = toUtf8Bytes(ens_normalize(name));
+    const bytes = toUtf8Bytes(ensNormalize(name));
     const comps: Array<Uint8Array> = [ ];
 
     if (name.length === 0) { return comps; }
@@ -39,10 +39,20 @@ function ensNameSplit(name: string): Array<Uint8Array> {
     return comps;
 }
 
+/**
+ *  Returns the ENS %%name%% normalized.
+ */
 export function ensNormalize(name: string): string {
-    return ensNameSplit(name).map((comp) => toUtf8String(comp)).join(".");
+    try {
+        return ens_normalize(name);
+    } catch (error: any) {
+        assertArgument(false, `invalid ENS name (${ error.message })`, "name", name);
+    }
 }
 
+/**
+ *  Returns ``true`` if %%name%% is a valid ENS name.
+ */
 export function isValidName(name: string): name is string {
     try {
         return (ensNameSplit(name).length !== 0);
@@ -50,6 +60,9 @@ export function isValidName(name: string): name is string {
     return false;
 }
 
+/**
+ *  Returns the [[link-namehash]] for %%name%%.
+ */
 export function namehash(name: string): string {
     assertArgument(typeof(name) === "string", "invalid ENS name; not a string", "name", name);
 
@@ -63,6 +76,12 @@ export function namehash(name: string): string {
     return hexlify(result);
 }
 
+/**
+ *  Returns the DNS encoded %%name%%.
+ *
+ *  This is used for various parts of ENS name resolution, such
+ *  as the wildcard resolution.
+ */
 export function dnsEncode(name: string): string {
     return hexlify(concat(ensNameSplit(name).map((comp) => {
         // DNS does not allow components over 63 bytes in length
