@@ -50,6 +50,14 @@ export {
 
 export { uuidV4 } from "./uuid.js";
 
+export {
+    verifyUniversalMessage,
+    verifyTypedData,
+    verifyFinalDigest,
+    _verifyTypedDataFinalDigest,
+} from "./verify-signature.js";
+
+
 /////////////////////////////
 // Types
 

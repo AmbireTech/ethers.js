@@ -100,7 +100,8 @@ export {
     formatEther, parseEther, formatUnits, parseUnits,
     toUtf8Bytes, toUtf8CodePoints, toUtf8String,
     Utf8ErrorFuncs,
-    decodeRlp, encodeRlp
+    decodeRlp, encodeRlp,
+    verifyUniversalMessage, verifyTypedData, verifyFinalDigest, _verifyTypedDataFinalDigest,
 } from "./utils/index.js";
 
 export {
